@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 
 import plotly.graph_objects as go
+import dash_bio
 from io import BytesIO
 
 # Allow the content to be spread across the whole page
@@ -86,20 +87,24 @@ if st.session_state.uploaded_files:
         elif topN == "all":
             topTaxa = df
 
-        fig = go.Figure(data=go.Heatmap(
-        z = topTaxa.values.tolist()[::-1],
-        x = topTaxa.columns,
-        y = list(topTaxa.index)[::-1],
-        colorscale="hot_r",
-        hoverongaps = False,
-        ))
-
-        fig.layout.autosize = False
-        fig.layout.height = 1200
-        fig.layout.margin = dict(b=200, l=50, r=50)
+        
+        fig = dash_bio.Clustergram(
+            data=topTaxa,
+            row_labels=list(range(1, len(topTaxa.index)+1)),
+            column_labels=list(topTaxa.columns),
+            height=1200,
+            color_map="hot_r",
+        )
+  
+        
 
         st.plotly_chart(fig, use_container_width=True)
 
+        st.write("### Legend:")
+        index_names = topTaxa.index
+        ordered_list = "\n".join([f"{i+1}. {name}" for i, name in enumerate(index_names)])
+        st.markdown(ordered_list)
+      
     with tab2:
 
         if "heatmap_dataset" not in st.session_state:
@@ -167,3 +172,6 @@ if st.session_state.uploaded_files:
                                 margin=dict(b=0)
                             )
             st.plotly_chart(fig, use_container_width=True)
+else:
+    # If no file is loaded display this title
+    st.title("Please upload data in the sidebar")
