@@ -69,6 +69,42 @@ def createBarplot(barplot_df):
                                 )
         st.plotly_chart(fig, use_container_width=True)
 
+def metaphlanTaxonomy(dataframe, taxonomy_level):
+    match taxonomy_level:
+        case "Taxonomy Level 1":
+            selection = dataframe[dataframe.index.str.contains("k__") & ~dataframe.index.str.contains("p__")]
+        case "Taxonomy Level 2":
+            selection = dataframe[dataframe.index.str.contains("p__") & ~dataframe.index.str.contains("c__")]
+        case "Taxonomy Level 3":
+            selection = dataframe[dataframe.index.str.contains("c__") & ~dataframe.index.str.contains("o__")]
+        case "Taxonomy Level 4":
+            selection = dataframe[dataframe.index.str.contains("o__") & ~dataframe.index.str.contains("f__")]
+        case "Taxonomy Level 5":
+            selection = dataframe[dataframe.index.str.contains("f__") & ~dataframe.index.str.contains("g__")]
+        case "Taxonomy Level 6":
+            selection = dataframe[dataframe.index.str.contains("g__") & ~dataframe.index.str.contains("s__")]
+        case "Taxonomy Level 7":
+            selection = dataframe[dataframe.index.str.contains("s__") & ~dataframe.index.str.contains("t__")]
+        case "Taxonomy Level 8":
+            selection = dataframe
+    
+    return selection
+
+def genefamiliesTaxonomy(dataframe, taxonomy_level):
+    match taxonomy_level:
+        case "Taxonomy Level 1":
+            selection = dataframe[dataframe.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
+        case "Taxonomy Level 2":
+            selection = dataframe[dataframe.index.str.contains("g__")]
+    
+    return selection
+
+def pathabundaceTaxonomy(dataframe, taxonomy_level):
+    match taxonomy_level:
+        case "Taxonomy Level 1":
+            selection = dataframe[dataframe.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
+    return selection
+
 
 # Initialize the session state dictionary if not already present
 if "uploaded_files" not in st.session_state:
@@ -94,11 +130,6 @@ if st.session_state.uploaded_files:
     file = st.session_state.uploaded_files[select_file]
     dataset = load_data(file, select_file)
 
-    if "heatmap_dataset" not in st.session_state:
-        st.session_state.heatmap_dataset = dataset
-
-    st.session_state.heatmap_dataset = dataset
-
     st.title("Graph View")
     tab1, tab2 = st.tabs(["Heatmap", "Barplot"])
 
@@ -108,9 +139,8 @@ if st.session_state.uploaded_files:
             topN = st.selectbox("Select number of top taxa:",
                             (10, 25, 50, "all"))
         
-        df = st.session_state.heatmap_dataset[st.session_state.heatmap_dataset.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED")==False]
+        df = dataset[dataset.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED")==False]
         df = sort_by_mean_abundance(df)
-
 
         if topN == 10:
             topTaxa = df.iloc[:10]
@@ -129,8 +159,6 @@ if st.session_state.uploaded_files:
             height=1200,
             color_map="sunset",
         )
-  
-        
 
         st.plotly_chart(fig, use_container_width=True)
 
@@ -140,11 +168,6 @@ if st.session_state.uploaded_files:
         st.markdown(ordered_list)
       
     with tab2:
-
-        if "heatmap_dataset" not in st.session_state:
-                st.session_state.barplot_dataset = dataset
-
-        st.session_state.barplot_dataset = dataset
         
         if "metaphlan" in select_file:
 
@@ -152,24 +175,8 @@ if st.session_state.uploaded_files:
             taxonomy_level = st.selectbox("Select taxonomy level:", 
                                           options=["Taxonomy Level 1", "Taxonomy Level 2", "Taxonomy Level 3", "Taxonomy Level 4", "Taxonomy Level 5", "Taxonomy Level 6", "Taxonomy Level 7", "Taxonomy Level 8"])
             
-            # Switch statement for selecting taxonomy level and filtering dataframe
-            match taxonomy_level:
-                case "Taxonomy Level 1":
-                    barplot_df = st.session_state.barplot_dataset[st.session_state.barplot_dataset.index.str.contains("k__") & ~st.session_state.barplot_dataset.index.str.contains("p__")]
-                case "Taxonomy Level 2":
-                    barplot_df = st.session_state.barplot_dataset[st.session_state.barplot_dataset.index.str.contains("k__") & ~st.session_state.barplot_dataset.index.str.contains("c__")]
-                case "Taxonomy Level 3":
-                    barplot_df = st.session_state.barplot_dataset[st.session_state.barplot_dataset.index.str.contains("k__") & ~st.session_state.barplot_dataset.index.str.contains("o__")]
-                case "Taxonomy Level 4":
-                    barplot_df = st.session_state.barplot_dataset[st.session_state.barplot_dataset.index.str.contains("k__") & ~st.session_state.barplot_dataset.index.str.contains("f__")]
-                case "Taxonomy Level 5":
-                    barplot_df = st.session_state.barplot_dataset[st.session_state.barplot_dataset.index.str.contains("k__") & ~st.session_state.barplot_dataset.index.str.contains("g__")]
-                case "Taxonomy Level 6":
-                    barplot_df = st.session_state.barplot_dataset[st.session_state.barplot_dataset.index.str.contains("k__") & ~st.session_state.barplot_dataset.index.str.contains("s__")]
-                case "Taxonomy Level 7":
-                    barplot_df = st.session_state.barplot_dataset[st.session_state.barplot_dataset.index.str.contains("k__") & ~st.session_state.barplot_dataset.index.str.contains("t__")]
-                case "Taxonomy Level 8":
-                    barplot_df = st.session_state.barplot_dataset
+            barplot_df = metaphlanTaxonomy(dataset, taxonomy_level)
+            
 
             createBarplot(barplot_df)
 
@@ -178,10 +185,9 @@ if st.session_state.uploaded_files:
             # Select box for selecting taxonomy level
             taxonomy_level = st.selectbox("Select taxonomy level:", 
                                           options=["Taxonomy Level 1"])
-            match taxonomy_level:
-                case "Taxonomy Level 1":
-                    barplot_df = st.session_state.barplot_dataset[st.session_state.barplot_dataset.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
             
+            barplot_df = pathabundaceTaxonomy(dataset, taxonomy_level)
+
             createBarplot(barplot_df)
         
         elif "genefamilies" in select_file:
@@ -193,15 +199,13 @@ if st.session_state.uploaded_files:
                 taxonomy_level = st.selectbox("Select taxonomy level:", 
                                             options=["Taxonomy Level 1"])
             with barplot_menu[1]:
-                select_column = st.selectbox("Select column:", options=st.session_state.barplot_dataset.columns)
+                select_column = st.selectbox("Select column:", options=dataset.columns)
             
             with barplot_menu[2]:
                 n_rows = st.selectbox("Select number of top rows:", options=[10, 25, 50, 100])
-
-            match taxonomy_level:
-                case "Taxonomy Level 1":
-                    barplot_df = st.session_state.barplot_dataset[st.session_state.barplot_dataset.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
             
+            barplot_df = genefamiliesTaxonomy(dataset, taxonomy_level)
+                        
             barplot_df = barplot_df.loc[:, [select_column]]
             barplot_df = barplot_df.sort_values(by= select_column,ascending=False)
             barplot_df = barplot_df.head(n_rows)

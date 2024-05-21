@@ -39,6 +39,41 @@ def plotDifferentialHeatmap(selected_dataset):
     fig.layout.height = 1000
     st.plotly_chart(fig, use_container_width=True)
 
+def metaphlanTaxonomy(dataframe, taxonomy_level):
+    match taxonomy_level:
+        case "Taxonomy Level 1":
+            selection = dataframe[dataframe.index.str.contains("k__") & ~dataframe.index.str.contains("p__")]
+        case "Taxonomy Level 2":
+            selection = dataframe[dataframe.index.str.contains("p__") & ~dataframe.index.str.contains("c__")]
+        case "Taxonomy Level 3":
+            selection = dataframe[dataframe.index.str.contains("c__") & ~dataframe.index.str.contains("o__")]
+        case "Taxonomy Level 4":
+            selection = dataframe[dataframe.index.str.contains("o__") & ~dataframe.index.str.contains("f__")]
+        case "Taxonomy Level 5":
+            selection = dataframe[dataframe.index.str.contains("f__") & ~dataframe.index.str.contains("g__")]
+        case "Taxonomy Level 6":
+            selection = dataframe[dataframe.index.str.contains("g__") & ~dataframe.index.str.contains("s__")]
+        case "Taxonomy Level 7":
+            selection = dataframe[dataframe.index.str.contains("s__") & ~dataframe.index.str.contains("t__")]
+        case "Taxonomy Level 8":
+            selection = dataframe
+    
+    return selection
+
+def genefamiliesTaxonomy(dataframe, taxonomy_level):
+    match taxonomy_level:
+        case "Taxonomy Level 1":
+            selection = dataframe[dataframe.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
+        case "Taxonomy Level 2":
+            selection = dataframe[dataframe.index.str.contains("g__")]
+    
+    return selection
+
+def pathabundaceTaxonomy(dataframe, taxonomy_level):
+    match taxonomy_level:
+        case "Taxonomy Level 1":
+            selection = dataframe[dataframe.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
+    return selection
 
 
 # Initialize the session state dictionary if not already present
@@ -66,15 +101,6 @@ if st.session_state.uploaded_files:
     dataset = load_data(file, select_file)
 
     # Define session state variables for each statistical analysis
-    if "differential_dataset" not in st.session_state:
-        st.session_state.differential_dataset = dataset
-    
-    if "alpha_dataset" not in st.session_state:
-        st.session_state.alpha_dataset = dataset
-    
-    if "beta_dataset" not in st.session_state:
-        st.session_state.beta_dataset = dataset
-    
     if "metadata" not in st.session_state:
         st.session_state.metadata = None
     
@@ -115,68 +141,46 @@ if st.session_state.uploaded_files:
                 if "metaphlan" in select_file:
 
                     # Select box for selecting taxonomy level
-                    taxonomy_level = st.selectbox("Select taxonomy level:", 
+                    alpha_taxonomy_level = st.selectbox("Select taxonomy level:", 
                                                 options=["Taxonomy Level 1", "Taxonomy Level 2", "Taxonomy Level 3", "Taxonomy Level 4", "Taxonomy Level 5", "Taxonomy Level 6", "Taxonomy Level 7", "Taxonomy Level 8"])
                     
-                    # Switch statement for selecting taxonomy level and filtering dataframe
-                    match taxonomy_level:
-                        case "Taxonomy Level 1":
-                            alpha_dataset = st.session_state.alpha_dataset[st.session_state.alpha_dataset.index.str.contains("k__") & ~st.session_state.alpha_dataset.index.str.contains("p__")]
-                        case "Taxonomy Level 2":
-                            alpha_dataset = st.session_state.alpha_dataset[st.session_state.alpha_dataset.index.str.contains("p__") & ~st.session_state.alpha_dataset.index.str.contains("c__")]
-                        case "Taxonomy Level 3":
-                            alpha_dataset = st.session_state.alpha_dataset[st.session_state.alpha_dataset.index.str.contains("c__") & ~st.session_state.alpha_dataset.index.str.contains("o__")]
-                        case "Taxonomy Level 4":
-                            alpha_dataset = st.session_state.alpha_dataset[st.session_state.alpha_dataset.index.str.contains("o__") & ~st.session_state.alpha_dataset.index.str.contains("f__")]
-                        case "Taxonomy Level 5":
-                            alpha_dataset = st.session_state.alpha_dataset[st.session_state.alpha_dataset.index.str.contains("f__") & ~st.session_state.alpha_dataset.index.str.contains("g__")]
-                        case "Taxonomy Level 6":
-                            alpha_dataset = st.session_state.alpha_dataset[st.session_state.alpha_dataset.index.str.contains("g__") & ~st.session_state.alpha_dataset.index.str.contains("s__")]
-                        case "Taxonomy Level 7":
-                            alpha_dataset = st.session_state.alpha_dataset[st.session_state.alpha_dataset.index.str.contains("s__") & ~st.session_state.alpha_dataset.index.str.contains("t__")]
-                        case "Taxonomy Level 8":
-                            alpha_dataset = st.session_state.alpha_dataset
-
+                    alpha_dataset = metaphlanTaxonomy(dataset, alpha_taxonomy_level)
 
                 elif "pathabundance" in select_file:
                     # Select box for selecting taxonomy level
-                    taxonomy_level = st.selectbox("Select taxonomy level:", 
+                    alpha_taxonomy_level = st.selectbox("Select taxonomy level:", 
                                                 options=["Taxonomy Level 1"])
-                    match taxonomy_level:
-                        case "Taxonomy Level 1":
-                            alpha_dataset = st.session_state.alpha_dataset[st.session_state.alpha_dataset.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
-        
+                    alpha_dataset = pathabundaceTaxonomy(dataset, alpha_taxonomy_level)
 
                 elif "genefamilies" in select_file:
                 
                     # Select box for selecting taxonomy level
-                    taxonomy_level = st.selectbox("Select taxonomy level:", 
+                    alpha_taxonomy_level = st.selectbox("Select taxonomy level:", 
                                                     options=["Taxonomy Level 1", "Taxonomy Level 2"])
 
-                    match taxonomy_level:
-                        case "Taxonomy Level 1":
-                            alpha_dataset = st.session_state.alpha_dataset[st.session_state.alpha_dataset.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
-                        case "Taxonomy Level 2":
-                            alpha_dataset = st.session_state.alpha_dataset[st.session_state.alpha_dataset.index.str.contains("g__")]
+                    alpha_dataset = genefamiliesTaxonomy(dataset, alpha_taxonomy_level)
+                
+                elif "pathcoverage" in select_file:
 
-                with alpha_menu[1]:
-                    metric_selection = st.selectbox("Select metric to group by:", options=st.session_state.metadata.columns)
+                    alpha_dataset = dataset[dataset.index.str.contains("g__") == False]
+                    
+            with alpha_menu[1]:
+                metric_selection = st.selectbox("Select metric to group by:", options=st.session_state.metadata.columns)
                 
-                with alpha_menu[2]:
-                    measure = st.selectbox("Select measure to calculate alpha diversity:", options=["Shannon", "Simpson"])
-                
-                if measure == "Shannon":
+            with alpha_menu[2]:
+                measure = st.selectbox("Select measure to calculate alpha diversity:", options=["Shannon", "Simpson"])
 
-                    # Calculate shannon index for all samples
-                    diversity_indexes = {}
-                    for column in alpha_dataset:
-                        diversity_indexes[column.split("_")[0]] = shannon(alpha_dataset[column])
-                
-                elif measure == "Simpson":
-                    # Calculate simpson index for all samples
-                    diversity_indexes = {}
-                    for column in alpha_dataset:
-                       diversity_indexes[column.split("_")[0]] = simpson(alpha_dataset[column])
+
+            diversity_indexes = {}
+            if measure == "Shannon":
+                # Calculate shannon index for all samples
+                for column in alpha_dataset:
+                    diversity_indexes[column.split("_")[0]] = shannon(alpha_dataset[column])
+            
+            elif measure == "Simpson":
+                # Calculate simpson index for all samples
+                for column in alpha_dataset:
+                    diversity_indexes[column.split("_")[0]] = simpson(alpha_dataset[column])
 
 
             # Select metric for sample splitting 
@@ -232,26 +236,10 @@ if st.session_state.uploaded_files:
 
                 # Select box for selecting taxonomy level
                 taxonomy_level = st.selectbox("Select taxonomy level:", 
-                                            options=["Taxonomy Level 1", "Taxonomy Level 2", "Taxonomy Level 3", "Taxonomy Level 4", "Taxonomy Level 5", "Taxonomy Level 6", "Taxonomy Level 7", "Taxonomy Level 8"])
+                                            options=["Taxonomy Level 1", "Taxonomy Level 2", "Taxonomy Level 3", "Taxonomy Level 4", "Taxonomy Level 5", "Taxonomy Level 6", "Taxonomy Level 7", "Taxonomy Level 8"],
+                                            key="diff")
                 
-                # Switch statement for selecting taxonomy level and filtering dataframe
-                match taxonomy_level:
-                    case "Taxonomy Level 1":
-                        differential_dataset = st.session_state.differential_dataset[st.session_state.differential_dataset.index.str.contains("k__") & ~st.session_state.differential_dataset.index.str.contains("p__")]
-                    case "Taxonomy Level 2":
-                        differential_dataset = st.session_state.differential_dataset[st.session_state.differential_dataset.index.str.contains("k__") & ~st.session_state.differential_dataset.index.str.contains("c__")]
-                    case "Taxonomy Level 3":
-                        differential_dataset = st.session_state.differential_dataset[st.session_state.differential_dataset.index.str.contains("k__") & ~st.session_state.differential_dataset.index.str.contains("o__")]
-                    case "Taxonomy Level 4":
-                        differential_dataset = st.session_state.differential_dataset[st.session_state.differential_dataset.index.str.contains("k__") & ~st.session_state.differential_dataset.index.str.contains("f__")]
-                    case "Taxonomy Level 5":
-                        differential_dataset = st.session_state.differential_dataset[st.session_state.differential_dataset.index.str.contains("k__") & ~st.session_state.differential_dataset.index.str.contains("g__")]
-                    case "Taxonomy Level 6":
-                        differential_dataset = st.session_state.differential_dataset[st.session_state.differential_dataset.index.str.contains("k__") & ~st.session_state.differential_dataset.index.str.contains("s__")]
-                    case "Taxonomy Level 7":
-                        differential_dataset = st.session_state.differential_dataset[st.session_state.differential_dataset.index.str.contains("k__") & ~st.session_state.differential_dataset.index.str.contains("t__")]
-                    case "Taxonomy Level 8":
-                        differential_dataset = st.session_state.differential_dataset
+                differential_dataset = metaphlanTaxonomy(dataset,taxonomy_level)
 
                 selected_dataset = differential_dataset[[str(first_sample), str(second_sample)]]
         
@@ -260,11 +248,10 @@ if st.session_state.uploaded_files:
             elif "pathabundance" in select_file:
                 # Select box for selecting taxonomy level
                 taxonomy_level = st.selectbox("Select taxonomy level:", 
-                                            options=["Taxonomy Level 1"])
-                match taxonomy_level:
-                    case "Taxonomy Level 1":
-                        differential_dataset = st.session_state.differential_dataset[st.session_state.differential_dataset.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
-        
+                                            options=["Taxonomy Level 1"],
+                                            key="diff")
+                differential_dataset = pathabundaceTaxonomy(dataset, taxonomy_level)
+
                 selected_dataset = differential_dataset[[str(first_sample), str(second_sample)]]
         
                 plotDifferentialHeatmap(selected_dataset)
@@ -273,11 +260,10 @@ if st.session_state.uploaded_files:
             
                 # Select box for selecting taxonomy level
                 taxonomy_level = st.selectbox("Select taxonomy level:", 
-                                                options=["Taxonomy Level 1"])
+                                                options=["Taxonomy Level 1", "Taxonomy Level 2"],
+                                                key="diff")
 
-                match taxonomy_level:
-                    case "Taxonomy Level 1":
-                        differential_dataset = st.session_state.differential_dataset[st.session_state.differential_dataset.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
+                differential_dataset = genefamiliesTaxonomy(dataset, taxonomy_level)
 
                 selected_dataset = differential_dataset[[str(first_sample), str(second_sample)]]
         
