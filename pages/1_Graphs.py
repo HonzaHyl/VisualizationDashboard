@@ -75,7 +75,7 @@ if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = {}
 
 # Widget to upload single file
-uploaded_files = st.sidebar.file_uploader("Select TSV file to upload", accept_multiple_files=True)
+uploaded_files = st.sidebar.file_uploader("Select TSV file to upload", accept_multiple_files=True, type=["tsv"])
 
 # Upload multiple files and save the to dictionary
 if uploaded_files:
