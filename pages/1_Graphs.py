@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-
 import plotly.graph_objects as go
 import dash_bio
 from io import BytesIO
@@ -34,6 +32,42 @@ def sort_by_mean_abundance(dataframe):
     dataframe = dataframe.sort_values("Mean_Abundance", ascending=False)
     dataframe = dataframe.drop(columns="Mean_Abundance")
     return dataframe
+
+def createBarplot(barplot_df):
+    # Sort barplot dataframe by index (descending)
+        barplot_df = barplot_df.sort_index(ascending=False)
+
+        # Normalize barplot dataframe
+        normalized_barplot_df = normalize_dataset(barplot_df)
+
+        # Get index names
+        index_names = normalized_barplot_df.index.tolist()
+
+        # Get column names
+        column_names = normalized_barplot_df.columns.tolist()
+
+        # Initialize figure
+        fig = go.Figure()
+
+        # Add trace for each taxa 
+        for index, index_name in enumerate(index_names):
+            fig.add_trace(go.Bar(x=column_names, y=normalized_barplot_df.loc[index_name], name=index_name))
+        
+
+        fig.update_layout(barmode='stack', 
+                            xaxis={'categoryorder':'category ascending', 'type':'category'},
+                            autosize=False,
+                            height=1000,
+                            showlegend=True,
+                            legend=dict( 
+                                    yanchor="top",
+                                    y=5,  # Adjust this value to position the legend lower or higher
+                                    xanchor="center",
+                                    x=0.5
+                                    ),
+                                    margin=dict(b=0)
+                                )
+        st.plotly_chart(fig, use_container_width=True)
 
 
 # Initialize the session state dictionary if not already present
@@ -93,7 +127,7 @@ if st.session_state.uploaded_files:
             row_labels=list(range(1, len(topTaxa.index)+1)),
             column_labels=list(topTaxa.columns),
             height=1200,
-            color_map="hot_r",
+            color_map="sunset",
         )
   
         
@@ -136,42 +170,47 @@ if st.session_state.uploaded_files:
                     barplot_df = st.session_state.barplot_dataset[st.session_state.barplot_dataset.index.str.contains("k__") & ~st.session_state.barplot_dataset.index.str.contains("t__")]
                 case "Taxonomy Level 8":
                     barplot_df = st.session_state.barplot_dataset
+
+            createBarplot(barplot_df)
+
+
+        elif "pathabundance" in select_file:
+            # Select box for selecting taxonomy level
+            taxonomy_level = st.selectbox("Select taxonomy level:", 
+                                          options=["Taxonomy Level 1"])
+            match taxonomy_level:
+                case "Taxonomy Level 1":
+                    barplot_df = st.session_state.barplot_dataset[st.session_state.barplot_dataset.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
             
-            # Sort barplot dataframe by index (descending)
-            barplot_df = barplot_df.sort_index(ascending=False)
+            createBarplot(barplot_df)
+        
+        elif "genefamilies" in select_file:
+            
+            barplot_menu = st.columns(3)
 
-            # Normalize barplot dataframe
-            normalized_barplot_df = normalize_dataset(barplot_df)
+            with barplot_menu[0]:
+                # Select box for selecting taxonomy level
+                taxonomy_level = st.selectbox("Select taxonomy level:", 
+                                            options=["Taxonomy Level 1"])
+            with barplot_menu[1]:
+                select_column = st.selectbox("Select column:", options=st.session_state.barplot_dataset.columns)
+            
+            with barplot_menu[2]:
+                n_rows = st.selectbox("Select number of top rows:", options=[10, 25, 50, 100])
 
-            # Get index names
-            index_names = normalized_barplot_df.index.tolist()
+            match taxonomy_level:
+                case "Taxonomy Level 1":
+                    barplot_df = st.session_state.barplot_dataset[st.session_state.barplot_dataset.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
+            
+            barplot_df = barplot_df.loc[:, [select_column]]
+            barplot_df = barplot_df.sort_values(by= select_column,ascending=False)
+            barplot_df = barplot_df.head(n_rows)
+            createBarplot(barplot_df)
+        else:
+            st.markdown("## Please select different file.")
 
-            # Get column names
-            column_names = normalized_barplot_df.columns.tolist()
-
-            # Initialize figure
-            fig = go.Figure()
-
-            # Add trace for each taxa 
-            for index, index_name in enumerate(index_names):
-                fig.add_trace(go.Bar(x=column_names, y=normalized_barplot_df.loc[index_name], name=index_name))
-    
-
-            fig.update_layout(barmode='stack', 
-                                xaxis={'categoryorder':'category ascending', 'type':'category'},
-                                autosize=False,
-                                height=1000,
-                                showlegend=True,
-                                legend=dict(
-                                    
-                                    yanchor="top",
-                                    y=5,  # Adjust this value to position the legend lower or higher
-                                    xanchor="center",
-                                    x=0.5
-                                ),
-                                margin=dict(b=0)
-                            )
-            st.plotly_chart(fig, use_container_width=True)
+            
+        
 else:
     # If no file is loaded display this title
     st.title("Please upload data in the sidebar")

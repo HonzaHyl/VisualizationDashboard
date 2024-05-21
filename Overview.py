@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-
 from io import BytesIO
 
 # Allow the content to be spread across the whole page
@@ -30,6 +28,7 @@ def normalize_dataset(table):
 
 # Function to turn on and off Mean abundance checkbox
 def toggle_box(): st.session_state.box_value = not st.session_state.box_value
+
 
 # Initialize the session state dictionary if not already present
 if "uploaded_files" not in st.session_state:
@@ -86,7 +85,10 @@ if st.session_state.uploaded_files:
         add_mean_abundance = st.checkbox("Mean abundance", disabled=st.session_state.box_value, value=False, help="Adds column with mean abundance per taxon (per row)")
         
         # Normalize dataset
-        normalize = st.checkbox("Normalize", value=False, on_change=toggle_box, help="Normalize columns to relative abundance of taxons per sample (percentage)")
+        if "metaphlan" in select_file:
+            normalize = st.checkbox("Normalize", value=False, disabled=True, on_change=toggle_box, help="Normalize columns to relative abundance of taxons per sample (percentage)")
+        else:    
+            normalize = st.checkbox("Normalize", value=False, on_change=toggle_box, help="Normalize columns to relative abundance of taxons per sample (percentage)")
 
         # Conditions to toggle normalization
         if normalize == True:
@@ -100,26 +102,31 @@ if st.session_state.uploaded_files:
 
         if add_mean_abundance == False and "Mean abundance" in selected_df.columns:
             selected_df = selected_df.drop("Mean abundance", axis=1)
+        
+        if st.session_state.box_value == True and "Mean abundance" in selected_df.columns:
+            selected_df = selected_df.drop("Mean abundance", axis=1)
     
     with top_menu[3]:
         if "metaphlan" in select_file: 
-            taxonomy_sort = st.selectbox("Select taxonomy rank:", options=["Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"])
+            taxonomy_sort = st.selectbox("Select taxonomy rank:", options=["All", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"])
 
             match taxonomy_sort:
                 case "Kingdom":
-                    selected_df = selected_df[selected_df.index.str.contains("k__")==True]
+                    selected_df = selected_df[selected_df.index.str.contains("k__") & ~selected_df.index.str.contains("p__")]
                 case "Phylum":
-                    selected_df = selected_df[selected_df.index.str.contains("p__")==True]
+                    selected_df = selected_df[selected_df.index.str.contains("p__") & ~selected_df.index.str.contains("c__")]
                 case "Class":
-                    selected_df = selected_df[selected_df.index.str.contains("c__")==True]
+                    selected_df = selected_df[selected_df.index.str.contains("c__") & ~selected_df.index.str.contains("o__")]
                 case "Order":
-                    selected_df = selected_df[selected_df.index.str.contains("o__")==True]
+                    selected_df = selected_df[selected_df.index.str.contains("o__") & ~selected_df.index.str.contains("f__")]
                 case "Family":
-                    selected_df = selected_df[selected_df.index.str.contains("f__")==True]
+                    selected_df = selected_df[selected_df.index.str.contains("f__") & ~selected_df.index.str.contains("g__")]
                 case "Genus":
-                    selected_df = selected_df[selected_df.index.str.contains("g__")==True]
+                    selected_df = selected_df[selected_df.index.str.contains("g__") & ~selected_df.index.str.contains("s__")]
                 case "Species":
-                    selected_df = selected_df[selected_df.index.str.contains("s__")==True]   
+                    selected_df = selected_df[selected_df.index.str.contains("s__") & ~selected_df.index.str.contains("t__")]
+                case "All":
+                    selected_df = selected_df
 
         if "genefamilies" in select_file:
             level_sort = st.selectbox("Show row on taxonomy level:", options=["All", "Collapsed", "Genus", "Species"])
