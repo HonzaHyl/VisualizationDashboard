@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 import dash_bio
 from io import BytesIO
 
+
 # Allow the content to be spread across the whole page
 st.set_page_config(layout="wide")
 
@@ -138,6 +139,8 @@ if st.session_state.uploaded_files:
         with top_menu[0]:
             topN = st.selectbox("Select number of top taxa:",
                             (10, 25, 50, "all"))
+        with top_menu[1]:
+            metrics = st.selectbox("Select metric for clustering:", options=["Euclidean", "Correlation", "Jaccard"])
         
         df = dataset[dataset.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED")==False]
         df = sort_by_mean_abundance(df)
@@ -150,7 +153,8 @@ if st.session_state.uploaded_files:
             topTaxa = df.iloc[:50]
         elif topN == "all":
             topTaxa = df
-
+        
+        
         
         fig = dash_bio.Clustergram(
             data=topTaxa,
@@ -158,6 +162,9 @@ if st.session_state.uploaded_files:
             column_labels=list(topTaxa.columns),
             height=1200,
             color_map="sunset",
+            row_dist=metrics.lower(),
+            col_dist=metrics.lower()
+
         )
 
         st.plotly_chart(fig, use_container_width=True)

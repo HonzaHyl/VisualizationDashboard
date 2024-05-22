@@ -66,20 +66,6 @@ if st.session_state.uploaded_files:
     # Initialize top menu
     top_menu = st.columns(4)
 
-    # Select box to choose by which column to sort
-    with top_menu[0]:
-        columnsNames = selected_df.columns.to_list()
-        columnsNames.append(selected_df.index.name)
-
-        sort_field = st.selectbox("Sort By", options=columnsNames, index=len(columnsNames)-1)
-
-    # Radio buttons for sorting direction
-    with top_menu[1]:
-        sort_direction = st.radio("Direction", options=["⬆️", "⬇️"], horizontal=True)
-
-        # Sort selected dataset
-        selected_df = selected_df.sort_values(by=sort_field, ascending=sort_direction == "⬆️")
-
     with top_menu[2]:
         # Manage column with mean abundance
         add_mean_abundance = st.checkbox("Mean abundance", disabled=st.session_state.box_value, value=False, help="Adds column with mean abundance per taxon (per row)")
@@ -105,6 +91,20 @@ if st.session_state.uploaded_files:
         
         if st.session_state.box_value == True and "Mean abundance" in selected_df.columns:
             selected_df = selected_df.drop("Mean abundance", axis=1)
+
+    # Select box to choose by which column to sort
+    with top_menu[0]:
+        columnsNames = selected_df.columns.to_list()
+        columnsNames.append(selected_df.index.name)
+
+        sort_field = st.selectbox("Sort By", options=columnsNames, index=len(columnsNames)-1)
+
+    # Radio buttons for sorting direction
+    with top_menu[1]:
+        sort_direction = st.radio("Direction", options=["⬆️", "⬇️"], horizontal=True)
+
+        # Sort selected dataset
+        selected_df = selected_df.sort_values(by=sort_field, ascending=sort_direction == "⬆️")
     
     with top_menu[3]:
         if "metaphlan" in select_file: 

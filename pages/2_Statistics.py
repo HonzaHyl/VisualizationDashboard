@@ -4,6 +4,9 @@ import pandas as pd
 from io import BytesIO
 import plotly.graph_objects as go
 from skbio.diversity.alpha import shannon, simpson
+from skbio.diversity import beta_diversity
+from skbio.stats.ordination import pcoa
+import plotly.express as px
 
 
 # Allow the content to be spread across the whole page
@@ -23,7 +26,7 @@ def load_data(file, file_name):
 # Function to plot differential heatmap
 def plotDifferentialHeatmap(selected_dataset):
         
-    selected_dataset["Difference"] = selected_dataset[str(first_sample)] - selected_dataset[str(second_sample)]
+    selected_dataset["Difference"] = abs(selected_dataset[str(first_sample)] - selected_dataset[str(second_sample)])
     
     selected_dataset = selected_dataset.sort_values(by="Difference", ascending=False)
     top_rows = selected_dataset.head(n_top_rows)
@@ -207,7 +210,124 @@ if st.session_state.uploaded_files:
     ################################### Beta diversity ###################################
     # Tab for beta diversity analysis
     with beta_tab:
-        pass
+        if st.session_state.metadata_uploaded == False:
+            st.markdown("### Alpha and beta analysis requires metadata file. Please upload it below:")
+            metadata_file = st.file_uploader("Upload metadata:", key="Beta")
+            if metadata_file:
+                bytes_metadata = metadata_file.getvalue()
+                
+                if ".tsv" in metadata_file.name:
+                    metadata_df = pd.read_csv(BytesIO(bytes_metadata), sep="\t", index_col=0)
+                if ".csv" in metadata_file.name:
+                    metadata_df = pd.read_csv(BytesIO(bytes_metadata), sep=",", index_col=0)
+                
+                st.session_state.metadata = metadata_df
+                st.session_state.metadata_uploaded = True
+                st.rerun()
+                
+        elif st.session_state.metadata_uploaded == True:
+            
+            st.markdown("## Beta diversity")
+
+            beta_menu = st.columns(3)
+
+            with beta_menu[0]:
+                if "metaphlan" in select_file:
+
+                    # Select box for selecting taxonomy level
+                    beta_taxonomy_level = st.selectbox("Select taxonomy level:", 
+                                                options=["Taxonomy Level 1", "Taxonomy Level 2", "Taxonomy Level 3", "Taxonomy Level 4", "Taxonomy Level 5", "Taxonomy Level 6", "Taxonomy Level 7", "Taxonomy Level 8"],
+                                                key="Beta")
+                    
+                    beta_dataset = metaphlanTaxonomy(dataset, beta_taxonomy_level)
+
+                elif "pathabundance" in select_file:
+                    # Select box for selecting taxonomy level
+                    beta_taxonomy_level = st.selectbox("Select taxonomy level:", 
+                                                options=["Taxonomy Level 1"],
+                                                key="Beta")
+                    beta_dataset = pathabundaceTaxonomy(dataset, beta_taxonomy_level)
+
+                elif "genefamilies" in select_file:
+                
+                    # Select box for selecting taxonomy level
+                    beta_taxonomy_level = st.selectbox("Select taxonomy level:", 
+                                                    options=["Taxonomy Level 1", "Taxonomy Level 2"],
+                                                    key="Beta")
+
+                    beta_dataset = genefamiliesTaxonomy(dataset, beta_taxonomy_level)
+                
+                elif "pathcoverage" in select_file:
+
+                    beta_dataset = dataset[dataset.index.str.contains("g__") == False]
+                    
+            #with beta_menu[1]:
+                #metric_selection = st.selectbox("Select metric to group by:", options=st.session_state.metadata.columns, key="MetricBeta")
+                
+            with beta_menu[2]:
+                measure = st.selectbox("Select measure to calculate alpha diversity:", options=["Braycurtis", "Jaccard"])
+
+            if any(beta_dataset[col].eq(0).all() for col in beta_dataset.columns):
+                all_zero_columns = beta_dataset.columns[(beta_dataset==0).all()]
+                beta_dataset = beta_dataset.drop(columns=all_zero_columns)
+
+                all_zero_list = ", ".join(list(all_zero_columns))
+                print(all_zero_list)
+                st.markdown(f"<span style='color:red'>Column dropped due zero abundance values: {all_zero_list}.</span>", unsafe_allow_html=True)
+
+
+            beta_dataset = beta_dataset.T
+            
+            if measure == "Braycurtis":
+                distance_matrix = beta_diversity(metric="braycurtis", counts=beta_dataset)
+                title_heatmap = 'Heatmap of Bray-Curtis Distance Matrix (0 - max. similarity, 1 - max. dissimilarity)'
+                title_3D = '3D PCoA of Bray-Curtis Distance Matrix'
+
+            elif measure == "Jaccard":
+                distance_matrix = beta_diversity(metric="jaccard", counts=beta_dataset)
+                title_heatmap = 'Heatmap of Jaccard Distance Matrix (0 - max. dissimilarity, 1 - max. similarity)'
+                title_3D = '3D PCoA of Jaccard Distance Matrix'
+
+            distance_df = pd.DataFrame(distance_matrix.data, index=distance_matrix.ids, columns=distance_matrix.ids)
+            pcoa_results = pcoa(distance_matrix)
+
+            pcoa_df = pcoa_results.samples
+            pcoa_df.reset_index(inplace=True)
+            pcoa_df.rename(columns={'index': 'Sample'}, inplace=True)
+
+            # Plot the heatmap using Plotly
+            beta_heatmap = go.Figure(data=go.Heatmap(
+                z=distance_df.values,
+                x=distance_df.columns,
+                y=distance_df.index,
+                colorscale='Sunset'
+            ))
+
+
+            beta_heatmap.update_layout(
+                title=title_heatmap,
+                xaxis_title='Samples',
+                yaxis_title='Samples'
+            )
+
+            # Show the plot
+            st.plotly_chart(beta_heatmap, use_container_width=True)  
+
+    
+            fig = px.scatter_3d(pcoa_df, x='PC1', y='PC2', z='PC3', text='Sample', title=title_3D,
+                labels = {
+                        'PC1': f'PC1 ({pcoa_results.proportion_explained.iloc[0]*100:.2f}%)',
+                        'PC2': f'PC2 ({pcoa_results.proportion_explained.iloc[1]*100:.2f}%)',
+                        'PC3': f'PC3 ({pcoa_results.proportion_explained.iloc[2]*100:.2f}%)'
+                            }
+                            )
+            # Update the layout for better readability
+            fig.update_traces(marker=dict(size=5), selector=dict(mode='markers+text'))
+            fig.update_layout(autosize=False, width=800, height=600,
+                            margin=dict(l=50, r=50, b=50, t=50))
+            
+            st.plotly_chart(fig, use_container_width=True)
+
 
     ################################### Differential expression ###################################
    # Tab for differential analysis 
