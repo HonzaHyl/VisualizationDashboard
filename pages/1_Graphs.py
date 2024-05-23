@@ -14,7 +14,7 @@ st.set_page_config(layout="wide")
 def load_data(file, file_name):
     if "metaphlan" in file_name:
         dataset = pd.read_csv(BytesIO(file), sep="\t", index_col=0, skiprows=1)
-        dataset.index.name = "Taxas"
+        dataset.index.name = "Taxa"
     else:
         dataset = pd.read_csv(BytesIO(file), sep="\t", index_col=0)
     return dataset
@@ -72,37 +72,37 @@ def createBarplot(barplot_df):
 
 def metaphlanTaxonomy(dataframe, taxonomy_level):
     match taxonomy_level:
-        case "Taxonomy Level 1":
+        case "Taxonomic Level 1 (Kingdom)":
             selection = dataframe[dataframe.index.str.contains("k__") & ~dataframe.index.str.contains("p__")]
-        case "Taxonomy Level 2":
+        case "Taxonomic Level 2 (Phylum)":
             selection = dataframe[dataframe.index.str.contains("p__") & ~dataframe.index.str.contains("c__")]
-        case "Taxonomy Level 3":
+        case "Taxonomic Level 3 (Class)":
             selection = dataframe[dataframe.index.str.contains("c__") & ~dataframe.index.str.contains("o__")]
-        case "Taxonomy Level 4":
+        case "Taxonomic Level 4 (Order)":
             selection = dataframe[dataframe.index.str.contains("o__") & ~dataframe.index.str.contains("f__")]
-        case "Taxonomy Level 5":
+        case "Taxonomic Level 5 (Family)":
             selection = dataframe[dataframe.index.str.contains("f__") & ~dataframe.index.str.contains("g__")]
-        case "Taxonomy Level 6":
+        case "Taxonomic Level 6 (Genus)":
             selection = dataframe[dataframe.index.str.contains("g__") & ~dataframe.index.str.contains("s__")]
-        case "Taxonomy Level 7":
+        case "Taxonomic Level 7 (Species)":
             selection = dataframe[dataframe.index.str.contains("s__") & ~dataframe.index.str.contains("t__")]
-        case "Taxonomy Level 8":
+        case "Taxonomic Level 8 (All)":
             selection = dataframe
     
     return selection
 
 def genefamiliesTaxonomy(dataframe, taxonomy_level):
     match taxonomy_level:
-        case "Taxonomy Level 1":
+        case "Taxonomic Level 1":
             selection = dataframe[dataframe.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
-        case "Taxonomy Level 2":
+        case "Taxonomic Level 2 (Genus & Species)":
             selection = dataframe[dataframe.index.str.contains("g__")]
     
     return selection
 
 def pathabundaceTaxonomy(dataframe, taxonomy_level):
     match taxonomy_level:
-        case "Taxonomy Level 1":
+        case "Taxonomic Level 1":
             selection = dataframe[dataframe.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
     return selection
 
@@ -134,13 +134,15 @@ if st.session_state.uploaded_files:
     st.title("Graph View")
     tab1, tab2 = st.tabs(["Heatmap", "Barplot"])
 
+    #################################### Heatmap ####################################
     with tab1:
         top_menu = st.columns(2)
         with top_menu[0]:
             topN = st.selectbox("Select number of top taxa:",
-                            (10, 25, 50, "all"))
+                            (10, 25, 50, "all"), help="Number of top taxa from ordered descending mean abundance (per row) column.")
         with top_menu[1]:
-            metrics = st.selectbox("Select metric for clustering:", options=["Euclidean", "Correlation", "Jaccard"])
+            metrics = st.selectbox("Select distance metric for clustering:", options=["Euclidean", "Correlation", "Jaccard"], 
+                                   help="Distance metric for calculating the dendrograms and distance between features.")
         
         df = dataset[dataset.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED")==False]
         df = sort_by_mean_abundance(df)
@@ -173,14 +175,16 @@ if st.session_state.uploaded_files:
         index_names = topTaxa.index
         ordered_list = "\n".join([f"{i+1}. {name}" for i, name in enumerate(index_names)])
         st.markdown(ordered_list)
-      
+    
+    #################################### Barplots ####################################
     with tab2:
         
         if "metaphlan" in select_file:
 
             # Select box for selecting taxonomy level
-            taxonomy_level = st.selectbox("Select taxonomy level:", 
-                                          options=["Taxonomy Level 1", "Taxonomy Level 2", "Taxonomy Level 3", "Taxonomy Level 4", "Taxonomy Level 5", "Taxonomy Level 6", "Taxonomy Level 7", "Taxonomy Level 8"])
+            taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                          options=["Taxonomic Level 1 (Kingdom)", "Taxonomic Level 2 (Phylum)", "Taxonomic Level 3 (Class)", "Taxonomic Level 4 (Order)", "Taxonomic Level 5 (Family)", "Taxonomic Level 6 (Genus)", "Taxonomic Level 7 (Species)", "Taxonomic Level 8 (All)"],
+                                          help="Show barplot for specific taxonomic level.")
             
             barplot_df = metaphlanTaxonomy(dataset, taxonomy_level)
             
@@ -190,8 +194,9 @@ if st.session_state.uploaded_files:
 
         elif "pathabundance" in select_file:
             # Select box for selecting taxonomy level
-            taxonomy_level = st.selectbox("Select taxonomy level:", 
-                                          options=["Taxonomy Level 1"])
+            taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                          options=["Taxonomic Level 1"],
+                                          help="Show barplot for specific taxonomic level.")
             
             barplot_df = pathabundaceTaxonomy(dataset, taxonomy_level)
 
@@ -203,13 +208,14 @@ if st.session_state.uploaded_files:
 
             with barplot_menu[0]:
                 # Select box for selecting taxonomy level
-                taxonomy_level = st.selectbox("Select taxonomy level:", 
-                                            options=["Taxonomy Level 1"])
+                taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                            options=["Taxonomic Level 1", "Taxonomic Level 2 (Genus & Species)"],
+                                            help="Show barplot for specific taxonomic level.")
             with barplot_menu[1]:
-                select_column = st.selectbox("Select column:", options=dataset.columns)
+                select_column = st.selectbox("Select column:", options=dataset.columns, help="Select column from genefamilies table (cannot show all columns at once due to extremely large table).")
             
             with barplot_menu[2]:
-                n_rows = st.selectbox("Select number of top rows:", options=[10, 25, 50, 100])
+                n_rows = st.selectbox("Select number of top rows:", options=[10, 25, 50, 100], help="Select number of top rows form selected column order descending.")
             
             barplot_df = genefamiliesTaxonomy(dataset, taxonomy_level)
                         

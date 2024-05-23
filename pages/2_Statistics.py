@@ -2,11 +2,14 @@ import streamlit as st
 import pandas as pd
 
 from io import BytesIO
+
 import plotly.graph_objects as go
+import plotly.express as px
+
 from skbio.diversity.alpha import shannon, simpson
 from skbio.diversity import beta_diversity
 from skbio.stats.ordination import pcoa
-import plotly.express as px
+
 
 
 # Allow the content to be spread across the whole page
@@ -44,37 +47,37 @@ def plotDifferentialHeatmap(selected_dataset):
 
 def metaphlanTaxonomy(dataframe, taxonomy_level):
     match taxonomy_level:
-        case "Taxonomy Level 1":
+        case "Taxonomic Level 1 (Kingdom)":
             selection = dataframe[dataframe.index.str.contains("k__") & ~dataframe.index.str.contains("p__")]
-        case "Taxonomy Level 2":
+        case "Taxonomic Level 2 (Phylum)":
             selection = dataframe[dataframe.index.str.contains("p__") & ~dataframe.index.str.contains("c__")]
-        case "Taxonomy Level 3":
+        case "Taxonomic Level 3 (Class)":
             selection = dataframe[dataframe.index.str.contains("c__") & ~dataframe.index.str.contains("o__")]
-        case "Taxonomy Level 4":
+        case "Taxonomic Level 4 (Order)":
             selection = dataframe[dataframe.index.str.contains("o__") & ~dataframe.index.str.contains("f__")]
-        case "Taxonomy Level 5":
+        case "Taxonomic Level 5 (Family)":
             selection = dataframe[dataframe.index.str.contains("f__") & ~dataframe.index.str.contains("g__")]
-        case "Taxonomy Level 6":
+        case "Taxonomic Level 6 (Genus)":
             selection = dataframe[dataframe.index.str.contains("g__") & ~dataframe.index.str.contains("s__")]
-        case "Taxonomy Level 7":
+        case "Taxonomic Level 7 (Species)":
             selection = dataframe[dataframe.index.str.contains("s__") & ~dataframe.index.str.contains("t__")]
-        case "Taxonomy Level 8":
+        case "Taxonomic Level 8 (All)":
             selection = dataframe
     
     return selection
 
 def genefamiliesTaxonomy(dataframe, taxonomy_level):
     match taxonomy_level:
-        case "Taxonomy Level 1":
+        case "Taxonomic Level 1":
             selection = dataframe[dataframe.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
-        case "Taxonomy Level 2":
+        case "Taxonomic Level 2 (Genus & Species)":
             selection = dataframe[dataframe.index.str.contains("g__")]
     
     return selection
 
 def pathabundaceTaxonomy(dataframe, taxonomy_level):
     match taxonomy_level:
-        case "Taxonomy Level 1":
+        case "Taxonomic Level 1":
             selection = dataframe[dataframe.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
     return selection
 
@@ -144,22 +147,23 @@ if st.session_state.uploaded_files:
                 if "metaphlan" in select_file:
 
                     # Select box for selecting taxonomy level
-                    alpha_taxonomy_level = st.selectbox("Select taxonomy level:", 
-                                                options=["Taxonomy Level 1", "Taxonomy Level 2", "Taxonomy Level 3", "Taxonomy Level 4", "Taxonomy Level 5", "Taxonomy Level 6", "Taxonomy Level 7", "Taxonomy Level 8"])
+                    alpha_taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                                options=["Taxonomic Level 1 (Kingdom)", "Taxonomic Level 2 (Phylum)", "Taxonomic Level 3 (Class)", "Taxonomic Level 4 (Order)", "Taxonomic Level 5 (Family)", "Taxonomic Level 6 (Genus)", "Taxonomic Level 7 (Species)", "Taxonomic Level 8 (All)"],
+                                                help="Show alpha diversity for specific taxonomic level.")
                     
                     alpha_dataset = metaphlanTaxonomy(dataset, alpha_taxonomy_level)
 
                 elif "pathabundance" in select_file:
                     # Select box for selecting taxonomy level
-                    alpha_taxonomy_level = st.selectbox("Select taxonomy level:", 
-                                                options=["Taxonomy Level 1"])
+                    alpha_taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                                options=["Taxonomic Level 1"],help="Show alpha diversity for specific taxonomic level.")
                     alpha_dataset = pathabundaceTaxonomy(dataset, alpha_taxonomy_level)
 
                 elif "genefamilies" in select_file:
                 
                     # Select box for selecting taxonomy level
-                    alpha_taxonomy_level = st.selectbox("Select taxonomy level:", 
-                                                    options=["Taxonomy Level 1", "Taxonomy Level 2"])
+                    alpha_taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                                    options=["Taxonomic Level 1", "Taxonomic Level 2 (Genus & Species)"], help="Show alpha diversity for specific taxonomic level.")
 
                     alpha_dataset = genefamiliesTaxonomy(dataset, alpha_taxonomy_level)
                 
@@ -168,10 +172,10 @@ if st.session_state.uploaded_files:
                     alpha_dataset = dataset[dataset.index.str.contains("g__") == False]
                     
             with alpha_menu[1]:
-                metric_selection = st.selectbox("Select metric to group by:", options=st.session_state.metadata.columns)
+                feature_selection = st.selectbox("Select feature to group by:", options=st.session_state.metadata.columns, help="Features from metadata to group by.")
                 
             with alpha_menu[2]:
-                measure = st.selectbox("Select measure to calculate alpha diversity:", options=["Shannon", "Simpson"])
+                measure = st.selectbox("Select measure to calculate alpha diversity:", options=["Shannon", "Simpson"], help="Select preferred alpha diversity measure.")
 
 
             diversity_indexes = {}
@@ -186,18 +190,18 @@ if st.session_state.uploaded_files:
                     diversity_indexes[column.split("_")[0]] = simpson(alpha_dataset[column])
 
 
-            # Select metric for sample splitting 
-            unique_values = st.session_state.metadata[[metric_selection]]
+            # Select feature for sample splitting 
+            unique_values = st.session_state.metadata[[feature_selection]]
 
-            # Add alpha diversity indexes to selected metric dataframe
+            # Add alpha diversity indexes to selected feature dataframe
             unique_values["DiversityIndex"] = unique_values.index.map(diversity_indexes)
             
             # Create violin plot for alpha diversity 
             fig = go.Figure()
 
-            for seqKit in unique_values[metric_selection].unique():
-                fig.add_trace(go.Violin(x=unique_values[metric_selection][unique_values[metric_selection] == seqKit],
-                                        y=unique_values["DiversityIndex"][unique_values[metric_selection] == seqKit],
+            for seqKit in unique_values[feature_selection].unique():
+                fig.add_trace(go.Violin(x=unique_values[feature_selection][unique_values[feature_selection] == seqKit],
+                                        y=unique_values["DiversityIndex"][unique_values[feature_selection] == seqKit],
                                         name=seqKit,
                                         box_visible=True,
                                         meanline_visible=True,
@@ -235,25 +239,25 @@ if st.session_state.uploaded_files:
                 if "metaphlan" in select_file:
 
                     # Select box for selecting taxonomy level
-                    beta_taxonomy_level = st.selectbox("Select taxonomy level:", 
-                                                options=["Taxonomy Level 1", "Taxonomy Level 2", "Taxonomy Level 3", "Taxonomy Level 4", "Taxonomy Level 5", "Taxonomy Level 6", "Taxonomy Level 7", "Taxonomy Level 8"],
-                                                key="Beta")
+                    beta_taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                                options=["Taxonomic Level 1 (Kingdom)", "Taxonomic Level 2 (Phylum)", "Taxonomic Level 3 (Class)", "Taxonomic Level 4 (Order)", "Taxonomic Level 5 (Family)", "Taxonomic Level 6 (Genus)", "Taxonomic Level 7 (Species)", "Taxonomic Level 8 (All)"],
+                                                key="Beta", help="Show beta diversity for specific taxonomic level.")
                     
                     beta_dataset = metaphlanTaxonomy(dataset, beta_taxonomy_level)
 
                 elif "pathabundance" in select_file:
                     # Select box for selecting taxonomy level
-                    beta_taxonomy_level = st.selectbox("Select taxonomy level:", 
-                                                options=["Taxonomy Level 1"],
-                                                key="Beta")
+                    beta_taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                                options=["Taxonomic Level 1"],
+                                                key="Beta", help="Show beta diversity for specific taxonomic level.")
                     beta_dataset = pathabundaceTaxonomy(dataset, beta_taxonomy_level)
 
                 elif "genefamilies" in select_file:
                 
                     # Select box for selecting taxonomy level
-                    beta_taxonomy_level = st.selectbox("Select taxonomy level:", 
-                                                    options=["Taxonomy Level 1", "Taxonomy Level 2"],
-                                                    key="Beta")
+                    beta_taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                                    options=["Taxonomic Level 1", "Taxonomic Level 2 (Genus & Species)"],
+                                                    key="Beta", help="Show beta diversity for specific taxonomic level.")
 
                     beta_dataset = genefamiliesTaxonomy(dataset, beta_taxonomy_level)
                 
@@ -261,11 +265,9 @@ if st.session_state.uploaded_files:
 
                     beta_dataset = dataset[dataset.index.str.contains("g__") == False]
                     
-            #with beta_menu[1]:
-                #metric_selection = st.selectbox("Select metric to group by:", options=st.session_state.metadata.columns, key="MetricBeta")
                 
             with beta_menu[2]:
-                measure = st.selectbox("Select measure to calculate alpha diversity:", options=["Braycurtis", "Jaccard"])
+                measure = st.selectbox("Select measure to calculate alpha diversity:", options=["Braycurtis", "Jaccard"], help="Select preferred beta diversity measure.")
 
             if any(beta_dataset[col].eq(0).all() for col in beta_dataset.columns):
                 all_zero_columns = beta_dataset.columns[(beta_dataset==0).all()]
@@ -339,13 +341,13 @@ if st.session_state.uploaded_files:
         differential_menu = st.columns(3)
 
         with differential_menu[0]:
-            first_sample = st.selectbox("Select first sample:", options=st.session_state.differential_dataset.columns, placeholder="-----")
+            first_sample = st.selectbox("Select first sample:", options=st.session_state.differential_dataset.columns, placeholder="-----", help="Select first sample to calculate difference.")
         
         with differential_menu[1]:
-            second_sample = st.selectbox("Select second sample:", options=st.session_state.differential_dataset.columns, placeholder="-----")
+            second_sample = st.selectbox("Select second sample:", options=st.session_state.differential_dataset.columns, placeholder="-----", help="Select second sample to calculate difference.")
         
         with differential_menu[2]:
-            n_top_rows = st.selectbox("Select number of top rows:", options=[10, 25, 50])
+            n_top_rows = st.selectbox("Select number of top rows:", options=[10, 25, 50], help="Number of top rows from difference column ordered descending.")
 
 
         if first_sample == second_sample:
@@ -355,9 +357,9 @@ if st.session_state.uploaded_files:
             if "metaphlan" in select_file:
 
                 # Select box for selecting taxonomy level
-                taxonomy_level = st.selectbox("Select taxonomy level:", 
-                                            options=["Taxonomy Level 1", "Taxonomy Level 2", "Taxonomy Level 3", "Taxonomy Level 4", "Taxonomy Level 5", "Taxonomy Level 6", "Taxonomy Level 7", "Taxonomy Level 8"],
-                                            key="diff")
+                taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                            options=["Taxonomic Level 1 (Kingdom)", "Taxonomic Level 2 (Phylum)", "Taxonomic Level 3 (Class)", "Taxonomic Level 4 (Order)", "Taxonomic Level 5 (Family)", "Taxonomic Level 6 (Genus)", "Taxonomic Level 7 (Species)", "Taxonomic Level 8 (All)"],
+                                            key="diff", help="Select taxonomic level to calculate difference on.")
                 
                 differential_dataset = metaphlanTaxonomy(dataset,taxonomy_level)
 
@@ -367,9 +369,9 @@ if st.session_state.uploaded_files:
 
             elif "pathabundance" in select_file:
                 # Select box for selecting taxonomy level
-                taxonomy_level = st.selectbox("Select taxonomy level:", 
-                                            options=["Taxonomy Level 1"],
-                                            key="diff")
+                taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                            options=["Taxonomic Level 1"],
+                                            key="diff", help="Select taxonomic level to calculate difference on.")
                 differential_dataset = pathabundaceTaxonomy(dataset, taxonomy_level)
 
                 selected_dataset = differential_dataset[[str(first_sample), str(second_sample)]]
@@ -379,9 +381,9 @@ if st.session_state.uploaded_files:
             elif "genefamilies" in select_file:
             
                 # Select box for selecting taxonomy level
-                taxonomy_level = st.selectbox("Select taxonomy level:", 
-                                                options=["Taxonomy Level 1", "Taxonomy Level 2"],
-                                                key="diff")
+                taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                                options=["Taxonomic Level 1", "Taxonomic Level 2 (Genus & Species)"],
+                                                key="diff", help="Select taxonomic level to calculate difference on.")
 
                 differential_dataset = genefamiliesTaxonomy(dataset, taxonomy_level)
 

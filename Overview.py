@@ -10,7 +10,7 @@ st.set_page_config(layout="wide")
 def load_data(file, file_name):
     if "metaphlan" in file_name:
         dataset = pd.read_csv(BytesIO(file), sep="\t", index_col=0, skiprows=1)
-        dataset.index.name = "Taxas"
+        dataset.index.name = "Taxa"
     else:
         dataset = pd.read_csv(BytesIO(file), sep="\t", index_col=0)
     return dataset
@@ -28,6 +28,33 @@ def normalize_dataset(table):
 
 # Function to turn on and off Mean abundance checkbox
 def toggle_box(): st.session_state.box_value = not st.session_state.box_value
+
+def metaphlanTaxonomy(dataframe, taxonomy_level):
+    match taxonomy_level:
+        case "Taxonomic Level 1 (Kingdom)":
+            selection = dataframe[dataframe.index.str.contains("k__") & ~dataframe.index.str.contains("p__")]
+        case "Taxonomic Level 2 (Phylum)":
+            selection = dataframe[dataframe.index.str.contains("p__") & ~dataframe.index.str.contains("c__")]
+        case "Taxonomic Level 3 (Class)":
+            selection = dataframe[dataframe.index.str.contains("c__") & ~dataframe.index.str.contains("o__")]
+        case "Taxonomic Level 4 (Order)":
+            selection = dataframe[dataframe.index.str.contains("o__") & ~dataframe.index.str.contains("f__")]
+        case "Taxonomic Level 5 (Family)":
+            selection = dataframe[dataframe.index.str.contains("f__") & ~dataframe.index.str.contains("g__")]
+        case "Taxonomic Level 6 (Genus)":
+            selection = dataframe[dataframe.index.str.contains("g__") & ~dataframe.index.str.contains("s__")]
+        case "Taxonomic Level 7 (Species)":
+            selection = dataframe[dataframe.index.str.contains("s__") & ~dataframe.index.str.contains("t__")]
+        case "Taxonomic Level 8 (All)":
+            selection = dataframe
+    
+    return selection
+
+def pathabundaceTaxonomy(dataframe, taxonomy_level):
+    match taxonomy_level:
+        case "Taxonomy Level 1":
+            selection = dataframe[dataframe.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
+    return selection
 
 
 # Initialize the session state dictionary if not already present
@@ -108,38 +135,23 @@ if st.session_state.uploaded_files:
     
     with top_menu[3]:
         if "metaphlan" in select_file: 
-            taxonomy_sort = st.selectbox("Select taxonomy rank:", options=["All", "Kingdom", "Phylum", "Class", "Order", "Family", "Genus", "Species"])
+            taxonomy_sort = st.selectbox("Select taxonomic level:", 
+                                         options=["Taxonomic Level 1 (Kingdom)", "Taxonomic Level 2 (Phylum)", "Taxonomic Level 3 (Class)", "Taxonomic Level 4 (Order)", "Taxonomic Level 5 (Family)", "Taxonomic Level 6 (Genus)", "Taxonomic Level 7 (Species)", "Taxonomic Level 8 (All)"], 
+                                         help="Shows all rows assigned to specific taxonomic level.")
 
-            match taxonomy_sort:
-                case "Kingdom":
-                    selected_df = selected_df[selected_df.index.str.contains("k__") & ~selected_df.index.str.contains("p__")]
-                case "Phylum":
-                    selected_df = selected_df[selected_df.index.str.contains("p__") & ~selected_df.index.str.contains("c__")]
-                case "Class":
-                    selected_df = selected_df[selected_df.index.str.contains("c__") & ~selected_df.index.str.contains("o__")]
-                case "Order":
-                    selected_df = selected_df[selected_df.index.str.contains("o__") & ~selected_df.index.str.contains("f__")]
-                case "Family":
-                    selected_df = selected_df[selected_df.index.str.contains("f__") & ~selected_df.index.str.contains("g__")]
-                case "Genus":
-                    selected_df = selected_df[selected_df.index.str.contains("g__") & ~selected_df.index.str.contains("s__")]
-                case "Species":
-                    selected_df = selected_df[selected_df.index.str.contains("s__") & ~selected_df.index.str.contains("t__")]
-                case "All":
-                    selected_df = selected_df
+            selected_df = metaphlanTaxonomy(selected_df, taxonomy_sort)
 
         if "genefamilies" in select_file:
-            level_sort = st.selectbox("Show row on taxonomy level:", options=["All", "Collapsed", "Genus", "Species"])
+            level_sort = st.selectbox("Show row on taxonomic level:", options=["All", "Collapsed", "Genus & Species"], 
+                                      help="Select taxonomic level (All - whole table, Collapsed - without g__ & s__, Genus & Species - only g__ & s__)")
 
             match level_sort:
                 case "All":
                     selected_df = selected_df
                 case "Collapsed":
                     selected_df = selected_df[selected_df.index.str.contains("g__|unclassified|s__")==False]
-                case "Genus":
+                case "Genus & Species":
                     selected_df = selected_df[selected_df.index.str.contains("g__")==True]
-                case "Species":
-                    selected_df = selected_df[selected_df.index.str.contains("s__")==True]
 
 
     # Set up container for dataset
