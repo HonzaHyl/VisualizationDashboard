@@ -168,8 +168,11 @@ if st.session_state.uploaded_files:
                     alpha_dataset = genefamiliesTaxonomy(dataset, alpha_taxonomy_level)
                 
                 elif "pathcoverage" in select_file:
+                    # Select box for selecting taxonomy level
+                    alpha_taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                                    options=["Taxonomic Level 1", "Taxonomic Level 2 (Genus & Species)"], help="Show alpha diversity for specific taxonomic level.")
 
-                    alpha_dataset = dataset[dataset.index.str.contains("g__") == False]
+                    alpha_dataset = genefamiliesTaxonomy(dataset, alpha_taxonomy_level)
                     
             with alpha_menu[1]:
                 feature_selection = st.selectbox("Select feature to group by:", options=st.session_state.metadata.columns, help="Features from metadata to group by.")
@@ -262,8 +265,11 @@ if st.session_state.uploaded_files:
                     beta_dataset = genefamiliesTaxonomy(dataset, beta_taxonomy_level)
                 
                 elif "pathcoverage" in select_file:
+                    # Select box for selecting taxonomy level
+                    beta_taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                                    options=["Taxonomic Level 1", "Taxonomic Level 2 (Genus & Species)"], help="Show alpha diversity for specific taxonomic level.", key="Beta")
 
-                    beta_dataset = dataset[dataset.index.str.contains("g__") == False]
+                    beta_dataset = genefamiliesTaxonomy(dataset, beta_taxonomy_level)
                     
                 
             with beta_menu[2]:
