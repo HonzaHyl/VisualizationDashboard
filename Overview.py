@@ -183,6 +183,8 @@ if st.session_state.uploaded_files:
     # Print dataset on the page
     pagination.dataframe(data=pages[current_page - 1], use_container_width=True)
 
+    
+
 
    
 

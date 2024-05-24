@@ -20,7 +20,7 @@ st.set_page_config(layout="wide")
 def load_data(file, file_name):
     if "metaphlan" in file_name:
         dataset = pd.read_csv(BytesIO(file), sep="\t", index_col=0, skiprows=1)
-        dataset.index.name = "Taxas"
+        dataset.index.name = "Taxa"
     else:
         dataset = pd.read_csv(BytesIO(file), sep="\t", index_col=0)
     return dataset
@@ -30,8 +30,9 @@ def load_data(file, file_name):
 def plotDifferentialHeatmap(selected_dataset):
         
     selected_dataset["Difference"] = abs(selected_dataset[str(first_sample)] - selected_dataset[str(second_sample)])
-    
+
     selected_dataset = selected_dataset.sort_values(by="Difference", ascending=False)
+
     top_rows = selected_dataset.head(n_top_rows)
     top_rows = top_rows.iloc[::-1]
         
@@ -140,77 +141,76 @@ if st.session_state.uploaded_files:
         elif st.session_state.metadata_uploaded == True:
             
             st.markdown("## Alpha diversity")
+            
+            if "pathcoverage" not in select_file:
+                alpha_menu = st.columns(3)
 
-            alpha_menu = st.columns(3)
+                with alpha_menu[0]:
+                    if "metaphlan" in select_file:
 
-            with alpha_menu[0]:
-                if "metaphlan" in select_file:
+                        # Select box for selecting taxonomy level
+                        alpha_taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                                    options=["Taxonomic Level 1 (Kingdom)", "Taxonomic Level 2 (Phylum)", "Taxonomic Level 3 (Class)", "Taxonomic Level 4 (Order)", "Taxonomic Level 5 (Family)", "Taxonomic Level 6 (Genus)", "Taxonomic Level 7 (Species)", "Taxonomic Level 8 (All)"],
+                                                    help="Show alpha diversity for specific taxonomic level.")
+                        
+                        alpha_dataset = metaphlanTaxonomy(dataset, alpha_taxonomy_level)
 
-                    # Select box for selecting taxonomy level
-                    alpha_taxonomy_level = st.selectbox("Select taxonomic level:", 
-                                                options=["Taxonomic Level 1 (Kingdom)", "Taxonomic Level 2 (Phylum)", "Taxonomic Level 3 (Class)", "Taxonomic Level 4 (Order)", "Taxonomic Level 5 (Family)", "Taxonomic Level 6 (Genus)", "Taxonomic Level 7 (Species)", "Taxonomic Level 8 (All)"],
-                                                help="Show alpha diversity for specific taxonomic level.")
+                    elif "pathabundance" in select_file:
+                        # Select box for selecting taxonomy level
+                        alpha_taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                                    options=["Taxonomic Level 1"],help="Show alpha diversity for specific taxonomic level.")
+                        alpha_dataset = pathabundaceTaxonomy(dataset, alpha_taxonomy_level)
+
+                    elif "genefamilies" in select_file:
                     
-                    alpha_dataset = metaphlanTaxonomy(dataset, alpha_taxonomy_level)
+                        # Select box for selecting taxonomy level
+                        alpha_taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                                        options=["Taxonomic Level 1", "Taxonomic Level 2 (Genus & Species)"], help="Show alpha diversity for specific taxonomic level.")
 
-                elif "pathabundance" in select_file:
-                    # Select box for selecting taxonomy level
-                    alpha_taxonomy_level = st.selectbox("Select taxonomic level:", 
-                                                options=["Taxonomic Level 1"],help="Show alpha diversity for specific taxonomic level.")
-                    alpha_dataset = pathabundaceTaxonomy(dataset, alpha_taxonomy_level)
-
-                elif "genefamilies" in select_file:
-                
-                    # Select box for selecting taxonomy level
-                    alpha_taxonomy_level = st.selectbox("Select taxonomic level:", 
-                                                    options=["Taxonomic Level 1", "Taxonomic Level 2 (Genus & Species)"], help="Show alpha diversity for specific taxonomic level.")
-
-                    alpha_dataset = genefamiliesTaxonomy(dataset, alpha_taxonomy_level)
-                
-                elif "pathcoverage" in select_file:
-                    # Select box for selecting taxonomy level
-                    alpha_taxonomy_level = st.selectbox("Select taxonomic level:", 
-                                                    options=["Taxonomic Level 1", "Taxonomic Level 2 (Genus & Species)"], help="Show alpha diversity for specific taxonomic level.")
-
-                    alpha_dataset = genefamiliesTaxonomy(dataset, alpha_taxonomy_level)
+                        alpha_dataset = genefamiliesTaxonomy(dataset, alpha_taxonomy_level)
                     
-            with alpha_menu[1]:
-                feature_selection = st.selectbox("Select feature to group by:", options=st.session_state.metadata.columns, help="Features from metadata to group by.")
+                    
+                        
+                        
+                with alpha_menu[1]:
+                    feature_selection = st.selectbox("Select feature to group by:", options=st.session_state.metadata.columns, help="Features from metadata to group by.")
+                    
+                with alpha_menu[2]:
+                    measure = st.selectbox("Select measure to calculate alpha diversity:", options=["Shannon", "Simpson"], help="Select preferred alpha diversity measure.")
+
+
+                diversity_indexes = {}
+                if measure == "Shannon":
+                    # Calculate shannon index for all samples
+                    for column in alpha_dataset:
+                        diversity_indexes[column.split("_")[0]] = shannon(alpha_dataset[column])
                 
-            with alpha_menu[2]:
-                measure = st.selectbox("Select measure to calculate alpha diversity:", options=["Shannon", "Simpson"], help="Select preferred alpha diversity measure.")
+                elif measure == "Simpson":
+                    # Calculate simpson index for all samples
+                    for column in alpha_dataset:
+                        diversity_indexes[column.split("_")[0]] = simpson(alpha_dataset[column])
 
 
-            diversity_indexes = {}
-            if measure == "Shannon":
-                # Calculate shannon index for all samples
-                for column in alpha_dataset:
-                    diversity_indexes[column.split("_")[0]] = shannon(alpha_dataset[column])
-            
-            elif measure == "Simpson":
-                # Calculate simpson index for all samples
-                for column in alpha_dataset:
-                    diversity_indexes[column.split("_")[0]] = simpson(alpha_dataset[column])
+                # Select feature for sample splitting 
+                unique_values = st.session_state.metadata[[feature_selection]]
 
+                # Add alpha diversity indexes to selected feature dataframe
+                unique_values["DiversityIndex"] = unique_values.index.map(diversity_indexes)
+                
+                # Create violin plot for alpha diversity 
+                fig = go.Figure()
 
-            # Select feature for sample splitting 
-            unique_values = st.session_state.metadata[[feature_selection]]
-
-            # Add alpha diversity indexes to selected feature dataframe
-            unique_values["DiversityIndex"] = unique_values.index.map(diversity_indexes)
-            
-            # Create violin plot for alpha diversity 
-            fig = go.Figure()
-
-            for seqKit in unique_values[feature_selection].unique():
-                fig.add_trace(go.Violin(x=unique_values[feature_selection][unique_values[feature_selection] == seqKit],
-                                        y=unique_values["DiversityIndex"][unique_values[feature_selection] == seqKit],
-                                        name=seqKit,
-                                        box_visible=True,
-                                        meanline_visible=True,
-                                        points="all"))
-            
-            st.plotly_chart(fig, use_container_width=True)
+                for seqKit in unique_values[feature_selection].unique():
+                    fig.add_trace(go.Violin(x=unique_values[feature_selection][unique_values[feature_selection] == seqKit],
+                                            y=unique_values["DiversityIndex"][unique_values[feature_selection] == seqKit],
+                                            name=seqKit,
+                                            box_visible=True,
+                                            meanline_visible=True,
+                                            points="all"))
+                
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.markdown("## Please select different file.")
 
 
 
@@ -236,105 +236,102 @@ if st.session_state.uploaded_files:
             
             st.markdown("## Beta diversity")
 
-            beta_menu = st.columns(3)
+            if "pathcoverage" not in select_file:
+                beta_menu = st.columns(3)
 
-            with beta_menu[0]:
-                if "metaphlan" in select_file:
+                with beta_menu[0]:
+                    if "metaphlan" in select_file:
 
-                    # Select box for selecting taxonomy level
-                    beta_taxonomy_level = st.selectbox("Select taxonomic level:", 
-                                                options=["Taxonomic Level 1 (Kingdom)", "Taxonomic Level 2 (Phylum)", "Taxonomic Level 3 (Class)", "Taxonomic Level 4 (Order)", "Taxonomic Level 5 (Family)", "Taxonomic Level 6 (Genus)", "Taxonomic Level 7 (Species)", "Taxonomic Level 8 (All)"],
-                                                key="Beta", help="Show beta diversity for specific taxonomic level.")
-                    
-                    beta_dataset = metaphlanTaxonomy(dataset, beta_taxonomy_level)
-
-                elif "pathabundance" in select_file:
-                    # Select box for selecting taxonomy level
-                    beta_taxonomy_level = st.selectbox("Select taxonomic level:", 
-                                                options=["Taxonomic Level 1"],
-                                                key="Beta", help="Show beta diversity for specific taxonomic level.")
-                    beta_dataset = pathabundaceTaxonomy(dataset, beta_taxonomy_level)
-
-                elif "genefamilies" in select_file:
-                
-                    # Select box for selecting taxonomy level
-                    beta_taxonomy_level = st.selectbox("Select taxonomic level:", 
-                                                    options=["Taxonomic Level 1", "Taxonomic Level 2 (Genus & Species)"],
+                        # Select box for selecting taxonomy level
+                        beta_taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                                    options=["Taxonomic Level 1 (Kingdom)", "Taxonomic Level 2 (Phylum)", "Taxonomic Level 3 (Class)", "Taxonomic Level 4 (Order)", "Taxonomic Level 5 (Family)", "Taxonomic Level 6 (Genus)", "Taxonomic Level 7 (Species)", "Taxonomic Level 8 (All)"],
                                                     key="Beta", help="Show beta diversity for specific taxonomic level.")
+                        
+                        beta_dataset = metaphlanTaxonomy(dataset, beta_taxonomy_level)
 
-                    beta_dataset = genefamiliesTaxonomy(dataset, beta_taxonomy_level)
-                
-                elif "pathcoverage" in select_file:
-                    # Select box for selecting taxonomy level
-                    beta_taxonomy_level = st.selectbox("Select taxonomic level:", 
-                                                    options=["Taxonomic Level 1", "Taxonomic Level 2 (Genus & Species)"], help="Show alpha diversity for specific taxonomic level.", key="Beta")
+                    elif "pathabundance" in select_file:
+                        # Select box for selecting taxonomy level
+                        beta_taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                                    options=["Taxonomic Level 1"],
+                                                    key="Beta", help="Show beta diversity for specific taxonomic level.")
+                        beta_dataset = pathabundaceTaxonomy(dataset, beta_taxonomy_level)
 
-                    beta_dataset = genefamiliesTaxonomy(dataset, beta_taxonomy_level)
+                    elif "genefamilies" in select_file:
                     
+                        # Select box for selecting taxonomy level
+                        beta_taxonomy_level = st.selectbox("Select taxonomic level:", 
+                                                        options=["Taxonomic Level 1", "Taxonomic Level 2 (Genus & Species)"],
+                                                        key="Beta", help="Show beta diversity for specific taxonomic level.")
+
+                        beta_dataset = genefamiliesTaxonomy(dataset, beta_taxonomy_level)
+                    
+                        
+                    
+                with beta_menu[2]:
+                    measure = st.selectbox("Select measure to calculate alpha diversity:", options=["Braycurtis", "Jaccard"], help="Select preferred beta diversity measure.")
+
+                if any(beta_dataset[col].eq(0).all() for col in beta_dataset.columns):
+                    all_zero_columns = beta_dataset.columns[(beta_dataset==0).all()]
+                    beta_dataset = beta_dataset.drop(columns=all_zero_columns)
+
+                    all_zero_list = ", ".join(list(all_zero_columns))
                 
-            with beta_menu[2]:
-                measure = st.selectbox("Select measure to calculate alpha diversity:", options=["Braycurtis", "Jaccard"], help="Select preferred beta diversity measure.")
-
-            if any(beta_dataset[col].eq(0).all() for col in beta_dataset.columns):
-                all_zero_columns = beta_dataset.columns[(beta_dataset==0).all()]
-                beta_dataset = beta_dataset.drop(columns=all_zero_columns)
-
-                all_zero_list = ", ".join(list(all_zero_columns))
-                print(all_zero_list)
-                st.markdown(f"<span style='color:red'>Column dropped due zero abundance values: {all_zero_list}.</span>", unsafe_allow_html=True)
+                    st.markdown(f"<span style='color:red'>Column dropped due zero abundance values: {all_zero_list}.</span>", unsafe_allow_html=True)
 
 
-            beta_dataset = beta_dataset.T
-            
-            if measure == "Braycurtis":
-                distance_matrix = beta_diversity(metric="braycurtis", counts=beta_dataset)
-                title_heatmap = 'Heatmap of Bray-Curtis Distance Matrix (0 - max. similarity, 1 - max. dissimilarity)'
-                title_3D = '3D PCoA of Bray-Curtis Distance Matrix'
+                beta_dataset = beta_dataset.T
+                
+                if measure == "Braycurtis":
+                    distance_matrix = beta_diversity(metric="braycurtis", counts=beta_dataset)
+                    title_heatmap = 'Heatmap of Bray-Curtis Distance Matrix (0 - max. similarity, 1 - max. dissimilarity)'
+                    title_3D = '3D PCoA of Bray-Curtis Distance Matrix'
 
-            elif measure == "Jaccard":
-                distance_matrix = beta_diversity(metric="jaccard", counts=beta_dataset)
-                title_heatmap = 'Heatmap of Jaccard Distance Matrix (0 - max. dissimilarity, 1 - max. similarity)'
-                title_3D = '3D PCoA of Jaccard Distance Matrix'
+                elif measure == "Jaccard":
+                    distance_matrix = beta_diversity(metric="jaccard", counts=beta_dataset)
+                    title_heatmap = 'Heatmap of Jaccard Distance Matrix (0 - max. dissimilarity, 1 - max. similarity)'
+                    title_3D = '3D PCoA of Jaccard Distance Matrix'
 
-            distance_df = pd.DataFrame(distance_matrix.data, index=distance_matrix.ids, columns=distance_matrix.ids)
-            pcoa_results = pcoa(distance_matrix)
+                distance_df = pd.DataFrame(distance_matrix.data, index=distance_matrix.ids, columns=distance_matrix.ids)
+                pcoa_results = pcoa(distance_matrix)
 
-            pcoa_df = pcoa_results.samples
-            pcoa_df.reset_index(inplace=True)
-            pcoa_df.rename(columns={'index': 'Sample'}, inplace=True)
+                pcoa_df = pcoa_results.samples
+                pcoa_df.reset_index(inplace=True)
+                pcoa_df.rename(columns={'index': 'Sample'}, inplace=True)
 
-            # Plot the heatmap using Plotly
-            beta_heatmap = go.Figure(data=go.Heatmap(
-                z=distance_df.values,
-                x=distance_df.columns,
-                y=distance_df.index,
-                colorscale='Sunset'
-            ))
+                # Plot the heatmap using Plotly
+                beta_heatmap = go.Figure(data=go.Heatmap(
+                    z=distance_df.values,
+                    x=distance_df.columns,
+                    y=distance_df.index,
+                    colorscale='Sunset'
+                ))
 
 
-            beta_heatmap.update_layout(
-                title=title_heatmap,
-                xaxis_title='Samples',
-                yaxis_title='Samples'
-            )
+                beta_heatmap.update_layout(
+                    title=title_heatmap,
+                    xaxis_title='Samples',
+                    yaxis_title='Samples'
+                )
 
-            # Show the plot
-            st.plotly_chart(beta_heatmap, use_container_width=True)  
+                # Show the plot
+                st.plotly_chart(beta_heatmap, use_container_width=True)  
 
-    
-            fig = px.scatter_3d(pcoa_df, x='PC1', y='PC2', z='PC3', text='Sample', title=title_3D,
-                labels = {
-                        'PC1': f'PC1 ({pcoa_results.proportion_explained.iloc[0]*100:.2f}%)',
-                        'PC2': f'PC2 ({pcoa_results.proportion_explained.iloc[1]*100:.2f}%)',
-                        'PC3': f'PC3 ({pcoa_results.proportion_explained.iloc[2]*100:.2f}%)'
-                            }
-                            )
-            # Update the layout for better readability
-            fig.update_traces(marker=dict(size=5), selector=dict(mode='markers+text'))
-            fig.update_layout(autosize=False, width=800, height=600,
-                            margin=dict(l=50, r=50, b=50, t=50))
-            
-            st.plotly_chart(fig, use_container_width=True)
+        
+                fig = px.scatter_3d(pcoa_df, x='PC1', y='PC2', z='PC3', text='Sample', title=title_3D,
+                    labels = {
+                            'PC1': f'PC1 ({pcoa_results.proportion_explained.iloc[0]*100:.2f}%)',
+                            'PC2': f'PC2 ({pcoa_results.proportion_explained.iloc[1]*100:.2f}%)',
+                            'PC3': f'PC3 ({pcoa_results.proportion_explained.iloc[2]*100:.2f}%)'
+                                }
+                                )
+                # Update the layout for better readability
+                fig.update_traces(marker=dict(size=5), selector=dict(mode='markers+text'))
+                fig.update_layout(autosize=False, width=800, height=600,
+                                margin=dict(l=50, r=50, b=50, t=50))
+                
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.markdown("## Please select different file.")
 
 
     ################################### Differential expression ###################################

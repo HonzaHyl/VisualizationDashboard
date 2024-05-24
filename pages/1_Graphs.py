@@ -1,7 +1,10 @@
 import streamlit as st
+
 import pandas as pd
+
 import plotly.graph_objects as go
 import dash_bio
+
 from io import BytesIO
 
 
@@ -34,25 +37,24 @@ def sort_by_mean_abundance(dataframe):
     dataframe = dataframe.drop(columns="Mean_Abundance")
     return dataframe
 
-def createBarplot(barplot_df):
+def createBarplot(barplot_df, y_title):
     # Sort barplot dataframe by index (descending)
         barplot_df = barplot_df.sort_index(ascending=False)
 
-        # Normalize barplot dataframe
-        normalized_barplot_df = normalize_dataset(barplot_df)
+        
 
         # Get index names
-        index_names = normalized_barplot_df.index.tolist()
+        index_names = barplot_df.index.tolist()
 
         # Get column names
-        column_names = normalized_barplot_df.columns.tolist()
+        column_names = barplot_df.columns.tolist()
 
         # Initialize figure
         fig = go.Figure()
 
         # Add trace for each taxa 
         for index, index_name in enumerate(index_names):
-            fig.add_trace(go.Bar(x=column_names, y=normalized_barplot_df.loc[index_name], name=index_name))
+            fig.add_trace(go.Bar(x=column_names, y=barplot_df.loc[index_name], name=index_name))
         
 
         fig.update_layout(barmode='stack', 
@@ -60,6 +62,7 @@ def createBarplot(barplot_df):
                             autosize=False,
                             height=1000,
                             showlegend=True,
+                            yaxis=dict(title=y_title),
                             legend=dict( 
                                     yanchor="top",
                                     y=5,  # Adjust this value to position the legend lower or higher
@@ -131,50 +134,53 @@ if st.session_state.uploaded_files:
     file = st.session_state.uploaded_files[select_file]
     dataset = load_data(file, select_file)
 
-    st.title("Graph View")
-    tab1, tab2 = st.tabs(["Heatmap", "Barplot"])
+    st.title("Graphs")
+    tab1, tab2 = st.tabs(["Heatmap", "Barplots"])
 
     #################################### Heatmap ####################################
     with tab1:
-        top_menu = st.columns(2)
-        with top_menu[0]:
-            topN = st.selectbox("Select number of top taxa:",
-                            (10, 25, 50, "all"), help="Number of top taxa from ordered descending mean abundance (per row) column.")
-        with top_menu[1]:
-            metrics = st.selectbox("Select distance metric for clustering:", options=["Euclidean", "Correlation", "Jaccard"], 
-                                   help="Distance metric for calculating the dendrograms and distance between features.")
-        
-        df = dataset[dataset.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED")==False]
-        df = sort_by_mean_abundance(df)
+        if "pathcoverage" not in select_file:
+            top_menu = st.columns(2)
+            with top_menu[0]:
+                topN = st.selectbox("Select number of top taxa:",
+                                (10, 25, 50, "all"), help="Number of top taxa from ordered descending mean abundance (per row) column.")
+            with top_menu[1]:
+                metrics = st.selectbox("Select distance metric for clustering:", options=["Euclidean", "Correlation", "Jaccard"], 
+                                    help="Distance metric for calculating the dendrograms and distance between features.")
+            
+            df = dataset[dataset.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED")==False]
+            df = sort_by_mean_abundance(df)
 
-        if topN == 10:
-            topTaxa = df.iloc[:10]
-        elif topN == 25:
-            topTaxa = df.iloc[:25]
-        elif topN == 50:
-            topTaxa = df.iloc[:50]
-        elif topN == "all":
-            topTaxa = df
-        
-        
-        
-        fig = dash_bio.Clustergram(
-            data=topTaxa,
-            row_labels=list(range(1, len(topTaxa.index)+1)),
-            column_labels=list(topTaxa.columns),
-            height=1200,
-            color_map="sunset",
-            row_dist=metrics.lower(),
-            col_dist=metrics.lower()
+            if topN == 10:
+                topTaxa = df.iloc[:10]
+            elif topN == 25:
+                topTaxa = df.iloc[:25]
+            elif topN == 50:
+                topTaxa = df.iloc[:50]
+            elif topN == "all":
+                topTaxa = df
+            
+            
+            
+            fig = dash_bio.Clustergram(
+                data=topTaxa,
+                row_labels=list(range(1, len(topTaxa.index)+1)),
+                column_labels=list(topTaxa.columns),
+                height=1200,
+                color_map="sunset",
+                row_dist=metrics.lower(),
+                col_dist=metrics.lower()
 
-        )
+            )
 
-        st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True)
 
-        st.write("### Legend:")
-        index_names = topTaxa.index
-        ordered_list = "\n".join([f"{i+1}. {name}" for i, name in enumerate(index_names)])
-        st.markdown(ordered_list)
+            st.write("### Legend:")
+            index_names = topTaxa.index
+            ordered_list = "\n".join([f"{i+1}. {name}" for i, name in enumerate(index_names)])
+            st.markdown(ordered_list)
+        else:
+            st.markdown("## Please select different file.")
     
     #################################### Barplots ####################################
     with tab2:
@@ -183,13 +189,13 @@ if st.session_state.uploaded_files:
 
             # Select box for selecting taxonomy level
             taxonomy_level = st.selectbox("Select taxonomic level:", 
-                                          options=["Taxonomic Level 1 (Kingdom)", "Taxonomic Level 2 (Phylum)", "Taxonomic Level 3 (Class)", "Taxonomic Level 4 (Order)", "Taxonomic Level 5 (Family)", "Taxonomic Level 6 (Genus)", "Taxonomic Level 7 (Species)", "Taxonomic Level 8 (All)"],
+                                          options=["Taxonomic Level 1 (Kingdom)", "Taxonomic Level 2 (Phylum)", "Taxonomic Level 3 (Class)", "Taxonomic Level 4 (Order)", "Taxonomic Level 5 (Family)", "Taxonomic Level 6 (Genus)", "Taxonomic Level 7 (Species)"],
                                           help="Show barplot for specific taxonomic level.")
             
             barplot_df = metaphlanTaxonomy(dataset, taxonomy_level)
             
 
-            createBarplot(barplot_df)
+            createBarplot(barplot_df, "Relativní abundance [%]")
 
 
         elif "pathabundance" in select_file:
@@ -198,9 +204,11 @@ if st.session_state.uploaded_files:
                                           options=["Taxonomic Level 1"],
                                           help="Show barplot for specific taxonomic level.")
             
+            
             barplot_df = pathabundaceTaxonomy(dataset, taxonomy_level)
+            normalized_dataset = normalize_dataset(barplot_df)
 
-            createBarplot(barplot_df)
+            createBarplot(normalized_dataset, "Relativní abundance [%]")
         
         elif "genefamilies" in select_file:
             
@@ -222,7 +230,7 @@ if st.session_state.uploaded_files:
             barplot_df = barplot_df.loc[:, [select_column]]
             barplot_df = barplot_df.sort_values(by= select_column,ascending=False)
             barplot_df = barplot_df.head(n_rows)
-            createBarplot(barplot_df)
+            createBarplot(barplot_df, "Absolutní abundance [RPKs]")
         else:
             st.markdown("## Please select different file.")
 
