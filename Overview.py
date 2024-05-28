@@ -1,3 +1,4 @@
+# Import libraries 
 import streamlit as st
 import pandas as pd
 from io import BytesIO
@@ -8,6 +9,15 @@ st.set_page_config(layout="wide")
 
 # Function for loading data from .tsv file
 def load_data(file, file_name):
+    """Converts loaded file from bytes format to  Pandas DataFrame. 
+
+    Args:
+        file (bytes): Loaded file from file_uploader 
+        file_name (str): Name of uploaded file
+
+    Returns:
+        DataFrame: Loaded file in the form of DataFrame
+    """
     if "metaphlan" in file_name:
         dataset = pd.read_csv(BytesIO(file), sep="\t", index_col=0, skiprows=1)
         dataset.index.name = "Taxa"
@@ -17,11 +27,29 @@ def load_data(file, file_name):
 
 # Function to split dataset for pagination
 def split_frame(input_df, rows):
+    """Takes whole DataFrame and returns list of DataFrames. These DataFrames
+    represent individual pages with selected number of rows.
+
+    Args:
+        input_df (DataFrame): Table to split
+        rows (int): Number of rows to display in a page
+
+    Returns:
+        List: List of DataFrames
+    """
     split_df = [input_df.iloc[i : i + rows - 1, :] for i in range(0, len(input_df), rows)]
     return split_df
 
 # Function to create normalized dataset
 def normalize_dataset(table):
+    """Whole input table is normalized to percentage by columns.
+
+    Args:
+        table (DataFrame): Whole uploaded table (file)
+
+    Returns:
+        DataFrame: Normalized table
+    """
     for column in table.columns:
         table[column] = (table[column]/table[column].sum())*100
     return table
@@ -30,6 +58,15 @@ def normalize_dataset(table):
 def toggle_box(): st.session_state.box_value = not st.session_state.box_value
 
 def metaphlanTaxonomy(dataframe, taxonomy_level):
+    """Function selects rows based on taxonomic level.
+
+    Args:
+        dataframe (DataFrame): Whole table (file)
+        taxonomy_level (str): Selected taxonomic level
+
+    Returns:
+        DataFrame: DataFrame with only rows on selected taxonomic level.
+    """
     match taxonomy_level:
         case "Taxonomic Level 1 (Kingdom)":
             selection = dataframe[dataframe.index.str.contains("k__") & ~dataframe.index.str.contains("p__")]
@@ -51,6 +88,15 @@ def metaphlanTaxonomy(dataframe, taxonomy_level):
     return selection
 
 def pathabundaceTaxonomy(dataframe, taxonomy_level):
+    """Function selects rows based on taxonomic level.
+
+    Args:
+        dataframe (DataFrame): Whole table (file)
+        taxonomy_level (str): Selected taxonomic level
+
+    Returns:
+        DataFrame: DataFrame with only rows on selected taxonomic level.
+    """
     match taxonomy_level:
         case "Taxonomy Level 1":
             selection = dataframe[dataframe.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
@@ -61,7 +107,7 @@ def pathabundaceTaxonomy(dataframe, taxonomy_level):
 if "uploaded_files" not in st.session_state:
     st.session_state.uploaded_files = {}
 
-# Widget to upload single file
+# Widget to upload multiple files
 uploaded_files = st.sidebar.file_uploader("Select TSV file to upload", accept_multiple_files=True, type=["tsv"])
 
 # Upload multiple files and save the to dictionary
@@ -133,7 +179,9 @@ if st.session_state.uploaded_files:
         # Sort selected dataset
         selected_df = selected_df.sort_values(by=sort_field, ascending=sort_direction == "⬆️")
     
+    # Select taxonomic level
     with top_menu[3]:
+        # Button for taxonomic level selection for MetaPhlAn results
         if "metaphlan" in select_file: 
             taxonomy_sort = st.selectbox("Select taxonomic level:", 
                                          options=["Taxonomic Level 1 (Kingdom)", "Taxonomic Level 2 (Phylum)", "Taxonomic Level 3 (Class)", "Taxonomic Level 4 (Order)", "Taxonomic Level 5 (Family)", "Taxonomic Level 6 (Genus)", "Taxonomic Level 7 (Species)", "Taxonomic Level 8 (All)"], 
@@ -141,6 +189,7 @@ if st.session_state.uploaded_files:
 
             selected_df = metaphlanTaxonomy(selected_df, taxonomy_sort)
 
+        # Button for taxonomic level selection for gene families
         if "genefamilies" in select_file:
             level_sort = st.selectbox("Show row on taxonomic level:", options=["All", "Collapsed", "Genus & Species"], 
                                       help="Select taxonomic level (All - whole table, Collapsed - without g__ & s__, Genus & Species - only g__ & s__)")

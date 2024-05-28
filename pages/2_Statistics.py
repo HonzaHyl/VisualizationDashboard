@@ -1,3 +1,4 @@
+# Import libraries 
 import streamlit as st
 import pandas as pd
 
@@ -18,6 +19,15 @@ st.set_page_config(layout="wide")
 
 # Function for loading data from .tsv file
 def load_data(file, file_name):
+    """Converts loaded file from bytes format to  Pandas DataFrame. 
+
+    Args:
+        file (bytes): Loaded file from file_uploader 
+        file_name (str): Name of uploaded file
+
+    Returns:
+        DataFrame: Loaded file in the form of DataFrame
+    """
     if "metaphlan" in file_name:
         dataset = pd.read_csv(BytesIO(file), sep="\t", index_col=0, skiprows=1)
         dataset.index.name = "Taxa"
@@ -27,15 +37,27 @@ def load_data(file, file_name):
 
 
 # Function to plot differential heatmap
-def plotDifferentialHeatmap(selected_dataset):
-        
+def plotDifferentialHeatmap(selected_dataset, nTopRows):
+    """Takes selected DataFrame, calculates Difference column and shows heatmap based on this column.
+
+    Args:
+        selected_dataset (DataFrame): Selected DataFrame for differential expression
+        nTopRows (int): Number of top rows to be selected 
+    """
+
+    # Calculate Difference column
     selected_dataset["Difference"] = abs(selected_dataset[str(first_sample)] - selected_dataset[str(second_sample)])
 
+    # Sort descending by Difference column
     selected_dataset = selected_dataset.sort_values(by="Difference", ascending=False)
 
-    top_rows = selected_dataset.head(n_top_rows)
+    # Select number of top rows
+    top_rows = selected_dataset.head(nTopRows)
+
+    # Reverse sort order for the heatmap plotting 
     top_rows = top_rows.iloc[::-1]
         
+    # Create heatmap 
     fig = go.Figure(data=go.Heatmap(
                 z=top_rows.values,
                 y=top_rows.index,
@@ -44,9 +66,20 @@ def plotDifferentialHeatmap(selected_dataset):
                 colorscale="sunset",
             ))
     fig.layout.height = 1000
+
+    # Display heatmap
     st.plotly_chart(fig, use_container_width=True)
 
 def metaphlanTaxonomy(dataframe, taxonomy_level):
+    """Function selects rows based on taxonomic level.
+
+    Args:
+        dataframe (DataFrame): Whole table (file)
+        taxonomy_level (str): Selected taxonomic level
+
+    Returns:
+        DataFrame: DataFrame with only rows on selected taxonomic level.
+    """
     match taxonomy_level:
         case "Taxonomic Level 1 (Kingdom)":
             selection = dataframe[dataframe.index.str.contains("k__") & ~dataframe.index.str.contains("p__")]
@@ -68,6 +101,15 @@ def metaphlanTaxonomy(dataframe, taxonomy_level):
     return selection
 
 def genefamiliesTaxonomy(dataframe, taxonomy_level):
+    """Function selects rows based on taxonomic level.
+
+    Args:
+        dataframe (DataFrame): Whole table (file)
+        taxonomy_level (str): Selected taxonomic level
+
+    Returns:
+        DataFrame: DataFrame with only rows on selected taxonomic level.
+    """
     match taxonomy_level:
         case "Taxonomic Level 1":
             selection = dataframe[dataframe.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
@@ -77,6 +119,15 @@ def genefamiliesTaxonomy(dataframe, taxonomy_level):
     return selection
 
 def pathabundaceTaxonomy(dataframe, taxonomy_level):
+    """Function selects rows based on taxonomic level.
+
+    Args:
+        dataframe (DataFrame): Whole table (file)
+        taxonomy_level (str): Selected taxonomic level
+
+    Returns:
+        DataFrame: DataFrame with only rows on selected taxonomic level.
+    """
     match taxonomy_level:
         case "Taxonomic Level 1":
             selection = dataframe[dataframe.index.str.contains("g__|unclassified|UNINTEGRATED|UNMAPPED") == False]
@@ -123,9 +174,12 @@ if st.session_state.uploaded_files:
     ################################### Alpha diversity ###################################
     # Tab for alpha diversity analysis
     with alpha_tab:
+        # Condition to upload metadata if no metadata uploaded
         if st.session_state.metadata_uploaded == False:
             st.markdown("### Alpha and beta analysis requires metadata file. Please upload it below:")
             metadata_file = st.file_uploader("Upload metadata:")
+
+            # Condition to process loaded metadata
             if metadata_file:
                 bytes_metadata = metadata_file.getvalue()
                 
@@ -137,7 +191,8 @@ if st.session_state.uploaded_files:
                 st.session_state.metadata = metadata_df
                 st.session_state.metadata_uploaded = True
                 st.rerun()
-                
+
+        # After metadata uploaded, create plots for statistical analysis        
         elif st.session_state.metadata_uploaded == True:
             
             st.markdown("## Alpha diversity")
@@ -148,34 +203,37 @@ if st.session_state.uploaded_files:
                 with alpha_menu[0]:
                     if "metaphlan" in select_file:
 
-                        # Select box for selecting taxonomy level
+                        # Select box for selecting taxonomic level
                         alpha_taxonomy_level = st.selectbox("Select taxonomic level:", 
                                                     options=["Taxonomic Level 1 (Kingdom)", "Taxonomic Level 2 (Phylum)", "Taxonomic Level 3 (Class)", "Taxonomic Level 4 (Order)", "Taxonomic Level 5 (Family)", "Taxonomic Level 6 (Genus)", "Taxonomic Level 7 (Species)", "Taxonomic Level 8 (All)"],
                                                     help="Show alpha diversity for specific taxonomic level.")
-                        
+                        # Include only rows with selected taxonomic level
                         alpha_dataset = metaphlanTaxonomy(dataset, alpha_taxonomy_level)
 
                     elif "pathabundance" in select_file:
-                        # Select box for selecting taxonomy level
+                        # Select box for selecting taxonomic level
                         alpha_taxonomy_level = st.selectbox("Select taxonomic level:", 
                                                     options=["Taxonomic Level 1"],help="Show alpha diversity for specific taxonomic level.")
+                        # Include only rows with selected taxonomic level
                         alpha_dataset = pathabundaceTaxonomy(dataset, alpha_taxonomy_level)
 
                     elif "genefamilies" in select_file:
                     
-                        # Select box for selecting taxonomy level
+                        # Select box for selecting taxonomic level
                         alpha_taxonomy_level = st.selectbox("Select taxonomic level:", 
                                                         options=["Taxonomic Level 1", "Taxonomic Level 2 (Genus & Species)"], help="Show alpha diversity for specific taxonomic level.")
-
+                        # Include only rows with selected taxonomic level
                         alpha_dataset = genefamiliesTaxonomy(dataset, alpha_taxonomy_level)
                     
                     
                         
                         
                 with alpha_menu[1]:
+                    # Select feature to group samples by
                     feature_selection = st.selectbox("Select feature to group by:", options=st.session_state.metadata.columns, help="Features from metadata to group by.")
                     
                 with alpha_menu[2]:
+                    # Select alpha diversity measure 
                     measure = st.selectbox("Select measure to calculate alpha diversity:", options=["Shannon", "Simpson"], help="Select preferred alpha diversity measure.")
 
 
@@ -208,6 +266,7 @@ if st.session_state.uploaded_files:
                                             meanline_visible=True,
                                             points="all"))
                 
+                # Show violin plot
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.markdown("## Please select different file.")
@@ -217,9 +276,12 @@ if st.session_state.uploaded_files:
     ################################### Beta diversity ###################################
     # Tab for beta diversity analysis
     with beta_tab:
+        # Condition to upload metadata if no metadata uploaded
         if st.session_state.metadata_uploaded == False:
             st.markdown("### Alpha and beta analysis requires metadata file. Please upload it below:")
             metadata_file = st.file_uploader("Upload metadata:", key="Beta")
+
+            # Condition to process loaded metadata
             if metadata_file:
                 bytes_metadata = metadata_file.getvalue()
                 
@@ -236,6 +298,7 @@ if st.session_state.uploaded_files:
             
             st.markdown("## Beta diversity")
 
+            # Condition to exclude pathcoverage 
             if "pathcoverage" not in select_file:
                 beta_menu = st.columns(3)
 
@@ -246,7 +309,7 @@ if st.session_state.uploaded_files:
                         beta_taxonomy_level = st.selectbox("Select taxonomic level:", 
                                                     options=["Taxonomic Level 1 (Kingdom)", "Taxonomic Level 2 (Phylum)", "Taxonomic Level 3 (Class)", "Taxonomic Level 4 (Order)", "Taxonomic Level 5 (Family)", "Taxonomic Level 6 (Genus)", "Taxonomic Level 7 (Species)", "Taxonomic Level 8 (All)"],
                                                     key="Beta", help="Show beta diversity for specific taxonomic level.")
-                        
+                        # Include only rows with selected taxonomic level
                         beta_dataset = metaphlanTaxonomy(dataset, beta_taxonomy_level)
 
                     elif "pathabundance" in select_file:
@@ -254,6 +317,7 @@ if st.session_state.uploaded_files:
                         beta_taxonomy_level = st.selectbox("Select taxonomic level:", 
                                                     options=["Taxonomic Level 1"],
                                                     key="Beta", help="Show beta diversity for specific taxonomic level.")
+                        # Include only rows with selected taxonomic level
                         beta_dataset = pathabundaceTaxonomy(dataset, beta_taxonomy_level)
 
                     elif "genefamilies" in select_file:
@@ -262,25 +326,29 @@ if st.session_state.uploaded_files:
                         beta_taxonomy_level = st.selectbox("Select taxonomic level:", 
                                                         options=["Taxonomic Level 1", "Taxonomic Level 2 (Genus & Species)"],
                                                         key="Beta", help="Show beta diversity for specific taxonomic level.")
-
+                        # Include only rows with selected taxonomic level
                         beta_dataset = genefamiliesTaxonomy(dataset, beta_taxonomy_level)
                     
                         
                     
                 with beta_menu[2]:
-                    measure = st.selectbox("Select measure to calculate alpha diversity:", options=["Braycurtis", "Jaccard"], help="Select preferred beta diversity measure.")
+                    # Select beta diversity measure 
+                    measure = st.selectbox("Select measure to calculate beta diversity:", options=["Braycurtis", "Jaccard"], help="Select preferred beta diversity measure.")
 
+                # Condition to exclude samples (columns) with zero in all rows
                 if any(beta_dataset[col].eq(0).all() for col in beta_dataset.columns):
                     all_zero_columns = beta_dataset.columns[(beta_dataset==0).all()]
                     beta_dataset = beta_dataset.drop(columns=all_zero_columns)
 
+                    # Print the excluded samples
                     all_zero_list = ", ".join(list(all_zero_columns))
                 
                     st.markdown(f"<span style='color:red'>Column dropped due zero abundance values: {all_zero_list}.</span>", unsafe_allow_html=True)
 
-
+                # Transpose DataFrame
                 beta_dataset = beta_dataset.T
                 
+                # Calculate beta diversity 
                 if measure == "Braycurtis":
                     distance_matrix = beta_diversity(metric="braycurtis", counts=beta_dataset)
                     title_heatmap = 'Heatmap of Bray-Curtis Distance Matrix (0 - max. similarity, 1 - max. dissimilarity)'
@@ -291,6 +359,7 @@ if st.session_state.uploaded_files:
                     title_heatmap = 'Heatmap of Jaccard Distance Matrix (0 - max. dissimilarity, 1 - max. similarity)'
                     title_3D = '3D PCoA of Jaccard Distance Matrix'
 
+                # Calculate PCOA
                 distance_df = pd.DataFrame(distance_matrix.data, index=distance_matrix.ids, columns=distance_matrix.ids)
                 pcoa_results = pcoa(distance_matrix)
 
@@ -298,7 +367,7 @@ if st.session_state.uploaded_files:
                 pcoa_df.reset_index(inplace=True)
                 pcoa_df.rename(columns={'index': 'Sample'}, inplace=True)
 
-                # Plot the heatmap using Plotly
+                # Create heatmap for beta diversity 
                 beta_heatmap = go.Figure(data=go.Heatmap(
                     z=distance_df.values,
                     x=distance_df.columns,
@@ -313,10 +382,10 @@ if st.session_state.uploaded_files:
                     yaxis_title='Samples'
                 )
 
-                # Show the plot
+                # Show heatmap for beta diversity 
                 st.plotly_chart(beta_heatmap, use_container_width=True)  
 
-        
+                # Create 3D scatter plot for PCoA
                 fig = px.scatter_3d(pcoa_df, x='PC1', y='PC2', z='PC3', text='Sample', title=title_3D,
                     labels = {
                             'PC1': f'PC1 ({pcoa_results.proportion_explained.iloc[0]*100:.2f}%)',
@@ -329,8 +398,10 @@ if st.session_state.uploaded_files:
                 fig.update_layout(autosize=False, width=800, height=600,
                                 margin=dict(l=50, r=50, b=50, t=50))
                 
+                # Show 3D scatter plot for PCoA
                 st.plotly_chart(fig, use_container_width=True)
             else:
+                # If pathcoverage file is selected, show this message
                 st.markdown("## Please select different file.")
 
 
@@ -341,18 +412,22 @@ if st.session_state.uploaded_files:
         # Load currently selected dataset to session state variable 
         st.session_state.differential_dataset = dataset
 
+        # Columns for buttons
         differential_menu = st.columns(3)
 
         with differential_menu[0]:
+            # Select first sample
             first_sample = st.selectbox("Select first sample:", options=st.session_state.differential_dataset.columns, placeholder="-----", help="Select first sample to calculate difference.")
         
         with differential_menu[1]:
+            # Select second sample
             second_sample = st.selectbox("Select second sample:", options=st.session_state.differential_dataset.columns, placeholder="-----", help="Select second sample to calculate difference.")
         
         with differential_menu[2]:
+            # Select number of top rows
             n_top_rows = st.selectbox("Select number of top rows:", options=[10, 25, 50], help="Number of top rows from difference column ordered descending.")
 
-
+        # If sample names are the same, show this message
         if first_sample == second_sample:
             st.markdown("## Please select two different columns")
 
@@ -364,22 +439,29 @@ if st.session_state.uploaded_files:
                                             options=["Taxonomic Level 1 (Kingdom)", "Taxonomic Level 2 (Phylum)", "Taxonomic Level 3 (Class)", "Taxonomic Level 4 (Order)", "Taxonomic Level 5 (Family)", "Taxonomic Level 6 (Genus)", "Taxonomic Level 7 (Species)", "Taxonomic Level 8 (All)"],
                                             key="diff", help="Select taxonomic level to calculate difference on.")
                 
+                # Include only rows with selected taxonomic level
                 differential_dataset = metaphlanTaxonomy(dataset,taxonomy_level)
 
+                # Include only selected columns
                 selected_dataset = differential_dataset[[str(first_sample), str(second_sample)]]
-        
-                plotDifferentialHeatmap(selected_dataset)
+
+                # Create and show heatmap
+                plotDifferentialHeatmap(selected_dataset, n_top_rows)
 
             elif "pathabundance" in select_file:
                 # Select box for selecting taxonomy level
                 taxonomy_level = st.selectbox("Select taxonomic level:", 
                                             options=["Taxonomic Level 1"],
                                             key="diff", help="Select taxonomic level to calculate difference on.")
+                
+                # Include only rows with selected taxonomic level
                 differential_dataset = pathabundaceTaxonomy(dataset, taxonomy_level)
 
+                # Include only selected columns
                 selected_dataset = differential_dataset[[str(first_sample), str(second_sample)]]
-        
-                plotDifferentialHeatmap(selected_dataset)
+
+                # Create and show heatmap
+                plotDifferentialHeatmap(selected_dataset, n_top_rows)
 
             elif "genefamilies" in select_file:
             
@@ -387,14 +469,18 @@ if st.session_state.uploaded_files:
                 taxonomy_level = st.selectbox("Select taxonomic level:", 
                                                 options=["Taxonomic Level 1", "Taxonomic Level 2 (Genus & Species)"],
                                                 key="diff", help="Select taxonomic level to calculate difference on.")
-
+                
+                # Include only rows with selected taxonomic level
                 differential_dataset = genefamiliesTaxonomy(dataset, taxonomy_level)
 
+                # Include only selected columns
                 selected_dataset = differential_dataset[[str(first_sample), str(second_sample)]]
-        
-                plotDifferentialHeatmap(selected_dataset)
+
+                # Create and show heatmap
+                plotDifferentialHeatmap(selected_dataset, n_top_rows)
     
             else:
+                # If pathcoverage file is selected, show this message
                 st.markdown("## Please select different file.")
             
             
