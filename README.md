@@ -10,6 +10,7 @@
 3. [Plotly](https://plotly.com) (version >= 5.22.0)
 4. [Pandas](https://pandas.pydata.org) (version >= 2.2.2)
 5. [Scikit-Bio](https://scikit.bio) (version >= 0.6.0)
+6. [Dash-Bio](https://dash.plotly.com/dash-bio) (version >= 1.0.2)
 
 _Note: Some of these packages may be downloaded together with Streamlit, but you should always check the version._
 
