@@ -1,6 +1,6 @@
 # Core dependencies
 
-python>=3.11.7
+python>=3.12
 streamlit>=1.33.0
 plotly>=5.22.0
 pandas>=2.2.2
