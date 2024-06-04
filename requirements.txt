@@ -3,3 +3,4 @@ streamlit>=1.33.0
 plotly>=5.22.0
 pandas>=2.2.2
 scikit-bio>=0.6.0
+dash-bio>=1.0.2
